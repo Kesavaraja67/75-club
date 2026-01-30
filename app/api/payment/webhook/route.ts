@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import crypto from "crypto";
 
 export async function POST(request: Request) {
@@ -18,8 +17,12 @@ export async function POST(request: Request) {
       .update(rawBody)
       .digest("hex");
 
-    if (signature !== expectedSignature) {
-      console.error("Invalid webhook signature");
+    // Use timing-safe comparison to prevent timing attacks
+    const sigBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+    
+    if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+      console.error("Invalid webhook signature (timing-safe check failed)");
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
@@ -31,13 +34,18 @@ export async function POST(request: Request) {
       const payment = event.payload.payment.entity;
       const orderId = payment.order_id;
       const paymentId = payment.id;
-      const email = payment.email;
-
-      // 3. Update Database
-      const supabase = await createClient();
+      
+      // 3. Update Database (Using SERVICE ROLE to bypass RLS)
+      // Webhooks are server-to-server and don't have a user session.
+      // We must use the SERVICE_ROLE key to update tables.
+      const { createClient } = await import('@supabase/supabase-js');
+      const serviceClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY! // Ensure this is in your .env.local
+      );
 
       // Update payment_orders
-      const { data: orderData, error: orderError } = await supabase
+      const { data: orderData, error: orderError } = await serviceClient
         .from("payment_orders")
         .update({
           status: "success",
@@ -59,7 +67,7 @@ export async function POST(request: Request) {
       const semesterEndDate = new Date();
       semesterEndDate.setMonth(semesterEndDate.getMonth() + 6);
 
-      const { error: subError } = await supabase
+      const { error: subError } = await serviceClient
         .from("subscriptions")
         .upsert({
           user_id: userId,

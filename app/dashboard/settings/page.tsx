@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Loader2, User, CreditCard, LogOut, Shield, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -18,7 +18,7 @@ export default function SettingsPage() {
   const [email, setEmail] = useState("");
   const [tier, setTier] = useState<"free" | "pro">("free");
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
   useEffect(() => {

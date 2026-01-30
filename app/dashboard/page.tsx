@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, Loader2, Plus, Sparkles, Info } from "lucide-react";
 import StatsGrid from "@/components/dashboard/StatsGrid";
@@ -51,7 +51,7 @@ export default function DashboardPage() {
   const [upgradeFeature, setUpgradeFeature] = useState<string>("");
   const [upgradeMessage, setUpgradeMessage] = useState<string>("");
   
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const fetchSubjects = useCallback(async () => {
     try {
@@ -114,11 +114,7 @@ export default function DashboardPage() {
     setIsScanOpen(true);
   };
 
-  const handleManualClose = () => {
-    setIsManualOpen(false);
-    setEditMode(false);
-    setSubjectToEdit(null);
-  };
+
 
   const handleScanComplete = (results: ScannedSubject[]) => {
     setScanResults(results);
@@ -165,7 +161,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleUpdateAttendance = async (subjectId: string, type: 'present' | 'total') => {
+  const handleUpdateAttendance = useCallback(async (subjectId: string, type: 'present' | 'total') => {
     try {
       // Find the subject
       const subject = subjects.find(s => s.id === subjectId);
@@ -202,7 +198,7 @@ export default function DashboardPage() {
       console.error(error);
       toast.error("Failed to update attendance");
     }
-  };
+  }, [subjects, supabase, fetchSubjects]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 py-6 max-w-6xl mx-auto">
@@ -271,20 +267,8 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
-      ) : subjects.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed rounded-lg">
-          <h3 className="text-lg font-semibold text-muted-foreground">No subjects found</h3>
-          <p className="mb-4">Scan your portal screenshot or add manually to get started!</p>
-          <div className="flex justify-center gap-4">
-            <Button onClick={() => setIsScanOpen(true)}>
-              <Camera className="mr-2 h-4 w-4" /> Scan Now
-            </Button>
-            <Button variant="outline" onClick={() => setIsManualOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Add Manually
-            </Button>
-          </div>
-        </div>
       ) : (
+
         <>
           {/* Stats Overview */}
           <div className="bg-blue-50 border-2 border-black rounded-xl p-4 flex items-start md:items-center gap-3 mb-6">
@@ -317,7 +301,7 @@ export default function DashboardPage() {
       <ManualSubjectDialog
         open={isManualOpen}
         onOpenChange={setIsManualOpen}
-        onSaved={fetchSubjects}
+        onSaved={handleSaved}
         editMode={editMode}
         subjectToEdit={subjectToEdit}
       />
@@ -386,7 +370,7 @@ export default function DashboardPage() {
         <Button 
           size="icon" 
           className="h-14 w-14 rounded-full shadow-lg shadow-blue-500/20"
-          onClick={() => setIsScanOpen(true)}
+          onClick={handleScanClick}
         >
           <Camera className="h-6 w-6" />
         </Button>

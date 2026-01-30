@@ -22,18 +22,23 @@ CREATE INDEX IF NOT EXISTS idx_calendar_events_user_date ON public.calendar_even
 ALTER TABLE public.calendar_events ENABLE ROW LEVEL SECURITY;
 
 -- 3. RLS Policies
+DROP POLICY IF EXISTS "Users can view own events" ON public.calendar_events;
 CREATE POLICY "Users can view own events"
   ON public.calendar_events FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own events" ON public.calendar_events;
 CREATE POLICY "Users can insert own events"
   ON public.calendar_events FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own events" ON public.calendar_events;
 CREATE POLICY "Users can update own events"
   ON public.calendar_events FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own events" ON public.calendar_events;
 CREATE POLICY "Users can delete own events"
   ON public.calendar_events FOR DELETE
   USING (auth.uid() = user_id);

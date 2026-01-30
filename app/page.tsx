@@ -4,7 +4,7 @@ import Hero from "@/components/landing/Hero";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Star } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 import UpgradeDialog from "@/components/subscription/UpgradeDialog"; // Import UpgradeDialog
@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation"; // Import useRouter
 export default function LandingPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [openUpgrade, setOpenUpgrade] = useState(false); // Add state for upgrade dialog
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
   useEffect(() => {

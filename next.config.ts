@@ -6,7 +6,7 @@ const withPWA = withPWAInit({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
-  swcMinify: true,
+  // swcMinify is removed as it's not a valid pwa option
   disable: process.env.NODE_ENV === "development", // Disable PWA in development
   workboxOptions: {
     disableDevLogs: true,
@@ -14,7 +14,7 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig: NextConfig = {
-  // Add other config options here if needed
+  turbopack: {},
 };
 
 export default withPWA(nextConfig);

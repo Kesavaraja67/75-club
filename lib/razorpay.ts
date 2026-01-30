@@ -11,9 +11,16 @@ import Razorpay from "razorpay";
  * Used for creating orders and verifying signatures.
  * @type {Razorpay}
  */
+const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+if (!keyId || !keySecret) {
+  throw new Error("Missing Razorpay configuration: NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set");
+}
+
 export const razorpay = new Razorpay({
-  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
+  key_id: keyId,
+  key_secret: keySecret,
 });
 
 /**
@@ -34,7 +41,7 @@ export const PAYMENT_CONFIG = {
  * @returns {string} A unique identifier string for the receipt.
  */
 export function generateReceiptId(): string {
-  return `${PAYMENT_CONFIG.RECEIPT_PREFIX}${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `${PAYMENT_CONFIG.RECEIPT_PREFIX}${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 /**

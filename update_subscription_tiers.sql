@@ -4,8 +4,8 @@ UPDATE public.user_profiles
 SET subscription_tier = 'free'
 WHERE user_id IN (
   SELECT id 
-  FROM auth.users 
-  WHERE email != 'srikesavaraja@gmail.com'
+  FROM auth.users
+  WHERE email NOT IN ('admin@example.com') -- Replace with your admin email
 );
 
 -- (Optional) If you want to ensure the admin is PRO, uncomment the following lines:
@@ -14,5 +14,5 @@ WHERE user_id IN (
 -- WHERE user_id IN (
 --   SELECT id 
 --   FROM auth.users 
---   WHERE email = 'srikesavaraja@gmail.com'
+--   WHERE email = 'admin@example.com' -- Replace with your admin email
 -- );

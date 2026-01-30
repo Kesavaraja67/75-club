@@ -38,7 +38,6 @@ export async function POST(request: Request) {
     const { error: dbError } = await supabase
       .from("payment_orders")
       .insert({
-        order_id: order.id, // Our internal ID (optional, using RP id as main ref here) - wait, schema has order_id text unique. I will use razorpay order id for both or generate one. The PROMPT SAYS: order_id, user_id, amount. I will use a UUID or the RP ID. The Code provided in Prompt 2 prompt uses order.id for razorpay_order_id. It also inserts order_id. The migration in Prompt 6 has `order_id text unique not null`. I'll use the razorpay order id for both to be safe, or generate a UUID if I could, but the code in Prompt 2 snippet provided by user only passed `order_id: order.id` and `razorpay_order_id: order.id`. This is fine.
         order_id: order.id, 
         user_id: user.id,
         amount: amount,

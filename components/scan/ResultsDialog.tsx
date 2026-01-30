@@ -100,11 +100,23 @@ export default function ResultsDialog({ open, onOpenChange, results, onSaved }: 
         });
       }
 
-      // Only insert new subjects
-      if (newSubjects.length === 0) {
+        if (newSubjects.length === 0) {
         toast.info("All subjects already exist in your dashboard");
         setSaving(false);
         onOpenChange(false);
+        return;
+      }
+
+      // Validation guard
+      const invalid = newSubjects.find(sub => {
+        const total = Number(sub.total_hours);
+        const present = Number(sub.hours_present);
+        return total < 0 || present < 0 || present > total;
+      });
+
+      if (invalid) {
+        toast.error("Attendance values must be non-negative and present ≤ total");
+        setSaving(false);
         return;
       }
 
@@ -130,7 +142,9 @@ export default function ResultsDialog({ open, onOpenChange, results, onSaved }: 
       toast.success(`Successfully added ${newSubjects.length} new subject(s)!`);
       onSaved();
       onOpenChange(false);
-    } catch (error: Error | unknown) {
+      onSaved();
+      onOpenChange(false);
+    } catch (error: unknown) {
       console.error("Save error:", error);
       toast.error("An error occurred while saving");
     } finally {
@@ -174,7 +188,9 @@ export default function ResultsDialog({ open, onOpenChange, results, onSaved }: 
                   </TableRow>
                 ) : (
                   data.map((item, index) => {
-                    const percentage = (Number(item.hours_present) / Number(item.total_hours)) * 100;
+                    const total = Number(item.total_hours);
+                    const present = Number(item.hours_present);
+                    const percentage = total > 0 ? (present / total) * 100 : 0;
                     
                     return (
                       <TableRow key={index} className="hover:bg-gray-50 transition-colors border-b border-gray-200">

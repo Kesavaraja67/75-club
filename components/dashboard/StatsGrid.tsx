@@ -14,11 +14,13 @@ export default function StatsGrid({ subjects }: StatsGridProps) {
   const overallPercentage = totalClasses > 0 ? (totalPresent / totalClasses) * 100 : 0;
   
   const atRisk = subjects.filter(sub => {
+    if (sub.totalHours === 0) return false;
     const pct = (sub.hoursPresent / sub.totalHours) * 100;
     return pct < sub.threshold;
   }).length;
 
   const safeToBunk = subjects.filter(sub => {
+    if (sub.totalHours === 0) return false;
     const pct = (sub.hoursPresent / sub.totalHours) * 100;
     const bunkLimit = Math.floor((sub.hoursPresent * 100 - sub.threshold * sub.totalHours) / sub.threshold);
     return pct >= sub.threshold && bunkLimit > 0;

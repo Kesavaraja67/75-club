@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -60,31 +60,10 @@ export default function TimetablePage() {
   const [submitting, setSubmitting] = useState(false);
 
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => {
-    checkAccess();
-  }, []);
-
-  const checkAccess = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    const { isProUser: isPro } = await fetchSubscriptionStatus(user.id);
-    setIsProUser(isPro);
-
-    if (isPro) {
-      await loadData(user.id);
-    }
-    
-    setLoading(false);
-  };
-
-  const loadData = async (userId: string) => {
+  // Load data - Function declaration is hoisted
+  async function loadData(userId: string) {
     // Load subjects
     const { data: subjectsData } = await supabase
       .from("subjects")
@@ -110,7 +89,40 @@ export default function TimetablePage() {
     if (slotsData) {
       setSlots(slotsData);
     }
-  };
+  }
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      const { isProUser: isPro } = await fetchSubscriptionStatus(user.id);
+      setIsProUser(isPro);
+
+      if (isPro) {
+        await loadData(user.id);
+      }
+      
+      setLoading(false);
+    };
+
+    checkAccess();
+  }, [supabase, router]);
+
+  // Move loadData definition up or inside useEffect if it's only used there... 
+  // But wait, loadData is used in handleSubmit and handleDelete too.
+  // So loadData should be defined normally. 
+  // Let's wrapping checkAccess and loadData in useCallback? 
+  // Or simpler: define loadData first, then checkAccess (wrapped in useCallback), then useEffect using checkAccess.
+  
+  // Implementation below: rearranging.
+
+  // Load data - Function declaration is hoisted
+  // Implementation below: rearranging.
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

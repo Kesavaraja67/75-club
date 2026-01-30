@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { UploadCloud, X, Loader2, Camera, CheckCircle2 } from "lucide-react";
@@ -36,7 +36,14 @@ export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
     setPreviews(newPreviews);
   };
 
+  useEffect(() => {
+    return () => {
+      previews.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [previews]);
+
   const clearFiles = () => {
+    previews.forEach(url => URL.revokeObjectURL(url));
     setFiles([]);
     setPreviews([]);
     setCurrentIndex(0);
@@ -45,6 +52,7 @@ export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
   };
 
   const removeFile = (index: number) => {
+    URL.revokeObjectURL(previews[index]);
     const newFiles = files.filter((_, i) => i !== index);
     const newPreviews = previews.filter((_, i) => i !== index);
     setFiles(newFiles);

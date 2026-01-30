@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BarChart3, TrendingUp, Calendar, Sparkles, Info, Download, FileText, FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Subject } from "@/lib/types";
 import { fetchSubscriptionStatus, SubscriptionStatus } from "@/lib/subscription";
@@ -25,6 +25,7 @@ export default function StatsPage() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   
   const isProUser = subscriptionStatus?.isProUser ?? false;
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -33,59 +34,54 @@ export default function StatsPage() {
       setSubscriptionStatus(status);
       
       // Then fetch subjects
-      fetchSubjects();
-    };
-    loadData();
-  }, []);
-
-  const fetchSubjects = async () => {
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('subjects')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error("Error fetching subjects:", error);
-      } else {
-        interface DatabaseSubject {
-          id: string;
-          name: string;
-          code?: string;
-          type: "Theory" | "Practical" | "Clinical" | "Lab";
-          total_hours: number;
-          hours_present: number;
-          threshold: number;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          setLoading(false);
+          return;
         }
 
-        // Map database fields (snake_case) to TypeScript interface (camelCase)
-        const mappedSubjects: Subject[] = (data || []).map((sub: DatabaseSubject) => ({
-          id: sub.id,
-          name: sub.name,
-          code: sub.code,
-          type: sub.type,
-          totalHours: sub.total_hours,
-          hoursPresent: sub.hours_present,
-          threshold: sub.threshold,
-          attendancePercentage: sub.total_hours > 0 ? (sub.hours_present / sub.total_hours) * 100 : 0
-        }));
-        setSubjects(mappedSubjects);
+        const { data, error } = await supabase
+          .from('subjects')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error("Error fetching subjects:", error);
+        } else {
+          interface DatabaseSubject {
+            id: string;
+            name: string;
+            code?: string;
+            type: "Theory" | "Practical" | "Clinical" | "Lab";
+            total_hours: number;
+            hours_present: number;
+            threshold: number;
+          }
+
+          // Map database fields (snake_case) to TypeScript interface (camelCase)
+          const mappedSubjects: Subject[] = (data || []).map((sub: DatabaseSubject) => ({
+            id: sub.id,
+            name: sub.name,
+            code: sub.code,
+            type: sub.type,
+            totalHours: sub.total_hours,
+            hoursPresent: sub.hours_present,
+            threshold: sub.threshold,
+            attendancePercentage: sub.total_hours > 0 ? (sub.hours_present / sub.total_hours) * 100 : 0
+          }));
+          setSubjects(mappedSubjects);
+        }
+      } catch (error) {
+        console.error("Error:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    loadData();
+  }, [supabase]);
 
   const handleExportCSV = () => {
     if (!isProUser) {
@@ -97,10 +93,21 @@ export default function StatsPage() {
     const rows = subjects.map(s => {
       const percentage = s.totalHours > 0 ? (s.hoursPresent / s.totalHours) * 100 : 0;
       const status = percentage < s.threshold ? "At Risk" : "Safe";
+      
+      // Escape fields for CSV to handle commas and double quotes
+      const escapeCsv = (field: string | number | undefined) => {
+        if (field === undefined || field === null) return '""';
+        const stringField = String(field);
+        if (stringField.includes('"') || stringField.includes(',') || stringField.includes('\n')) {
+          return `"${stringField.replace(/"/g, '""')}"`;
+        }
+        return stringField;
+      };
+
       return [
-        `"${s.name}"`,
-        `"${s.code || ''}"`,
-        s.type,
+        escapeCsv(s.name),
+        escapeCsv(s.code),
+        escapeCsv(s.type),
         s.totalHours,
         s.hoursPresent,
         `${percentage.toFixed(1)}%`,
@@ -123,6 +130,7 @@ export default function StatsPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleExportPDF = () => {

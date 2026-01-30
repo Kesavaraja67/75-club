@@ -87,10 +87,15 @@ export default function UpgradeDialog({ open, onOpenChange, feature, message }: 
           color: "#FF6B35", // Your brand color
         },
       };
+      
+      if (!window.Razorpay) {
+        toast.error("Razorpay SDK failed to load. Please refresh and try again.");
+        setLoading(false);
+        return;
+      }
 
       const razorpay = new window.Razorpay(options);
       razorpay.open();
-
     } catch (error) {
       console.error("Upgrade error:", error);
       toast.error("Failed to initiate payment. Please try again.");

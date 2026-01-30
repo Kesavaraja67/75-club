@@ -38,17 +38,41 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
+DROP POLICY IF EXISTS "Users can view own subscription" ON public.subscriptions;
 CREATE POLICY "Users can view own subscription"
   ON public.subscriptions
   FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own subscription" ON public.subscriptions;
 CREATE POLICY "Users can update own subscription"
   ON public.subscriptions
   FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Service can insert subscriptions"
+DROP POLICY IF EXISTS "Users can insert own subscription" ON public.subscriptions;
+CREATE POLICY "Users can insert own subscription"
   ON public.subscriptions
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (auth.uid() = user_id);
+
+-- Trigger for updated_at
+CREATE OR REPLACE FUNCTION update_subscriptions_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER subscriptions_updated_at
+  BEFORE UPDATE ON public.subscriptions
+  FOR EACH ROW
+  EXECUTE FUNCTION update_subscriptions_updated_at();
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_payment_orders_user ON public.payment_orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON public.payment_orders(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON public.subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON public.subscriptions(status);

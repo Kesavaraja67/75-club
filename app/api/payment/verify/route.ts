@@ -36,24 +36,36 @@ export async function POST(request: Request) {
     }
 
     // Payment verified! Update database
-    // 1. Update payment order status
-    await supabase
+    // 1. Update payment order status, BUT only if it belongs to this user and is still 'created'
+    const { data: orderData, error: orderError } = await supabase
       .from("payment_orders")
       .update({
         status: "success",
         razorpay_payment_id: razorpay_payment_id,
         verified_at: new Date().toISOString(),
       })
-      .eq("razorpay_order_id", razorpay_order_id);
+      .eq("razorpay_order_id", razorpay_order_id)
+      .eq("user_id", user.id) // Ensure ownership
+      .eq("status", "created") // Ensure not already processed
+      .select("user_id")
+      .single();
 
-    // 2. Create/Update subscription
+    if (orderError || !orderData) {
+      console.error("Order verification failed or order already processed:", orderError);
+      return NextResponse.json(
+        { error: "Order not found, not yours, or already processed" },
+        { status: 400 }
+      );
+    }
+
+    // 2. Create/Update subscription (Only if step 1 succeeded)
     const semesterEndDate = new Date();
     semesterEndDate.setMonth(semesterEndDate.getMonth() + 6); // 6 months
 
     const { error: subError } = await supabase
       .from("subscriptions")
       .upsert({
-        user_id: user.id,
+        user_id: user.id, // Use authenticated user ID
         plan_type: "pro",
         status: "active",
         current_period_start: new Date().toISOString(),

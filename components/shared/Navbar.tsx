@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut, Menu, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { fetchSubscriptionStatus, SubscriptionStatus } from "@/lib/subscription";
 
 export default function Navbar() {
@@ -14,7 +14,7 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -29,8 +29,8 @@ export default function Navbar() {
     
     checkAuth();
 
-    // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // 2. Fix shadowing: Rename destuctured variable
+    const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setIsAuthenticated(!!session);
       if (session) {
         const status = await fetchSubscriptionStatus();
@@ -41,12 +41,15 @@ export default function Navbar() {
     });
 
     return () => {
-      subscription.unsubscribe();
+      authListener.unsubscribe();
     };
   }, [supabase]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Logout failed:", error);
+    }
     router.push("/");
     router.refresh();
   };

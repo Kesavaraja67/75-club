@@ -42,7 +42,8 @@ CREATE POLICY "Users can view own profile"
 
 CREATE POLICY "Users can update own profile"
   ON public.user_profiles FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert own profile"
   ON public.user_profiles FOR INSERT
@@ -59,7 +60,8 @@ CREATE POLICY "Users can insert own usage"
 
 CREATE POLICY "Users can update own usage"
   ON public.ai_scan_usage FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- 6. Function to create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -72,7 +74,8 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp;
 
 -- 7. Trigger on auth.users to auto-create profile
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;

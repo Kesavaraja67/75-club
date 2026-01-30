@@ -15,10 +15,10 @@ interface AttendanceCardProps {
 }
 
 function calculateValues(subject: Subject) {
-  const percentage = (subject.hoursPresent / subject.totalHours) * 100;
+  const T = subject.totalHours || 1; // Prevent division by zero
+  const percentage = (subject.hoursPresent / T) * 100;
   const t = subject.threshold;
   const p = subject.hoursPresent;
-  const T = subject.totalHours;
 
   let bunkLimit = 0;
   let required = 0;

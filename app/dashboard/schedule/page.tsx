@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Tesseract from "tesseract.js";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -68,7 +68,7 @@ export default function SchedulePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const checkAccess = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -125,35 +125,40 @@ export default function SchedulePage() {
     e.preventDefault();
     setSubmitting(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { error } = await supabase.from("timetable_slots").insert({
-      user_id: user.id,
-      subject_id: formData.subject_id,
-      day_of_week: parseInt(formData.day_of_week),
-      start_time: formData.start_time,
-      end_time: formData.end_time,
-      room_number: formData.room_number || null,
-    });
-
-    if (error) {
-      console.error("Error adding slot:", error);
-      alert("Failed to add timetable slot. Please try again.");
-    } else {
-      // Reset form
-      setFormData({
-        subject_id: "",
-        day_of_week: "",
-        start_time: "",
-        end_time: "",
-        room_number: "",
+      const { error } = await supabase.from("timetable_slots").insert({
+        user_id: user.id,
+        subject_id: formData.subject_id,
+        day_of_week: parseInt(formData.day_of_week),
+        start_time: formData.start_time,
+        end_time: formData.end_time,
+        room_number: formData.room_number || null,
       });
-      // Reload data
-      await loadData(user.id);
-    }
 
-    setSubmitting(false);
+      if (error) {
+        console.error("Error adding slot:", error);
+        alert("Failed to add timetable slot. Please try again.");
+      } else {
+        // Reset form
+        setFormData({
+          subject_id: "",
+          day_of_week: "",
+          start_time: "",
+          end_time: "",
+          room_number: "",
+        });
+        // Reload data
+        await loadData(user.id);
+      }
+    } catch (error) {
+      console.error("Error adding slot:", error);
+      alert("An unexpected error occurred. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDelete = async (slotId: string) => {

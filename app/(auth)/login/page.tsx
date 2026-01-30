@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -18,10 +18,11 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   
-  // Get redirect path, default to "/" (Landing Page)
-  const redirectPath = searchParams.get("redirect") || "/";
+  // Get redirect path, ensuring it's relative to prevent Open Redirects
+  const rawRedirect = searchParams.get("redirect") || "/";
+  const redirectPath = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
 
   // Redirect if already logged in
   useEffect(() => {

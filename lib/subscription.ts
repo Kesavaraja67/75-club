@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Subscription utilities for Free vs Pro tier management
@@ -30,12 +31,9 @@ const DEFAULT_FREE_STATUS: SubscriptionStatus = {
 
 /**
  * Fetch subscription status for a user from database
- * 
- * TEMPORARY: All users are Pro by default for development/testing
- * TODO: Revert this to check actual subscription_tier from database for production
  */
-export async function fetchSubscriptionStatus(userId?: string): Promise<SubscriptionStatus> {
-  const supabase = createClient();
+export async function fetchSubscriptionStatus(userId?: string, client?: SupabaseClient): Promise<SubscriptionStatus> {
+  const supabase = client || createClient();
   
   try {
     let targetUserId = userId;
@@ -92,7 +90,7 @@ export async function fetchSubscriptionStatus(userId?: string): Promise<Subscrip
     return {
       tier: 'pro',
       isProUser: true,
-      subjectLimit: Infinity,
+      subjectLimit: Number.MAX_SAFE_INTEGER,
       canUseAIScan: true,
       canUseCalendar: true,
       canUseAIBuddy: true,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,7 @@ interface TimetableSlot {
 export default function TodaySchedule({ selectedDate, events }: { selectedDate: Date, events: CalendarEvent[] }) {
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const fetchSchedule = async () => {
@@ -32,7 +32,11 @@ export default function TodaySchedule({ selectedDate, events }: { selectedDate: 
       const dayOfWeek = selectedDate.getDay();
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setSlots([]);
+        setLoading(false);
+        return;
+      }
 
       const { data } = await supabase
         .from("timetable_slots")

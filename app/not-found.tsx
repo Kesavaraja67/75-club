@@ -13,16 +13,16 @@ export default function NotFound() {
             Oops! Looks like this page decided to bunk class too. 😅
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/">
-              <Button className="font-display font-bold rounded-2xl w-full sm:w-auto">
+            <Button asChild className="font-display font-bold rounded-2xl w-full sm:w-auto">
+              <Link href="/">
                 🏠 Go Home
-              </Button>
-            </Link>
-            <Link href="/dashboard">
-              <Button variant="outline" className="font-display font-bold rounded-2xl w-full sm:w-auto">
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="font-display font-bold rounded-2xl w-full sm:w-auto">
+              <Link href="/dashboard">
                 📊 Dashboard
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </div>

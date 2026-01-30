@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Check if user is Pro
-    const { isProUser } = await fetchSubscriptionStatus(user.id);
+    const { isProUser } = await fetchSubscriptionStatus(user.id, supabase);
     if (!isProUser) {
       return NextResponse.json(
         { error: "AI Buddy is a Pro feature. Please upgrade to access." },
@@ -71,11 +71,11 @@ export async function POST(request: NextRequest) {
         })
       : [];
 
-    const overallAttendance = subjects && subjects.length > 0
-      ? Math.round(
-          (subjects.reduce((sum, s) => sum + s.hours_present, 0) /
-            subjects.reduce((sum, s) => sum + s.total_hours, 0)) * 100
-        )
+    const totalHours = subjects?.reduce((sum, s) => sum + s.total_hours, 0) ?? 0;
+    const presentHours = subjects?.reduce((sum, s) => sum + s.hours_present, 0) ?? 0;
+    
+    const overallAttendance = totalHours > 0 
+      ? Math.round((presentHours / totalHours) * 100)
       : 0;
 
     // 6. Fetch timetable data for today
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     const systemPrompt = `You are the Bunk Planner AI Buddy - a friendly, casual assistant helping students make smart bunking decisions.
 
 CURRENT CONTEXT:
-- Date: ${istNow.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}
+- Date: ${istNow.toLocaleDateString('en-IN')}
 - Day: ${dayNames[currentDay]}
 - Time: ${currentTime} IST
 
@@ -180,14 +180,24 @@ Now respond to the student's question using this context!`;
       },
     };
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
     console.log("[AI Buddy] Sending request to Gemini...");
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
+    
+    let response;
+    try {
+      response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();

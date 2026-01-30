@@ -77,7 +77,6 @@ function parseTimetableText(text: string): TimetableClass[] {
     if (dayMatch) {
       const dayName = dayMatch[1];
       currentDay = dayMap[dayName] ?? -1;
-      console.log(`Found day: ${dayName} = ${currentDay}`);
       continue;
     }
 
@@ -111,6 +110,11 @@ function extractClassInfo(line: string, dayOfWeek: number): TimetableClass | nul
 
     const startTime = `${String(startHour).padStart(2, '0')}:${startMin}`;
     const endTime = `${String(endHour).padStart(2, '0')}:${endMin}`;
+
+    // Validate times
+    if (startHour > 23 || parseInt(startMin) > 59 || endHour > 23 || parseInt(endMin) > 59) {
+      return null;
+    }
 
     // Extract subject name (everything after the time)
     const subjectPart = line.substring(match1.index! + match1[0].length).trim();
@@ -169,6 +173,11 @@ function extractClassInfo(line: string, dayOfWeek: number): TimetableClass | nul
 
     const startTime = `${String(startHour).padStart(2, '0')}:${startMin}`;
     const endTime = `${String(endHour).padStart(2, '0')}:${endMin}`;
+
+    // Validate times
+    if (startHour > 23 || parseInt(startMin) > 59 || endHour > 23 || parseInt(endMin) > 59) {
+      return null;
+    }
 
     // Extract subject name
     const subjectPart = line.substring(match2.index! + match2[0].length).trim();

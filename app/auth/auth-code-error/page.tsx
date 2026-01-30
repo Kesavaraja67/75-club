@@ -16,12 +16,12 @@ export default function AuthErrorPage() {
           The sign-in link is invalid or has expired. This often happens if you click the link in your email more than once.
         </p>
         <div className="flex gap-2">
-           <Link href="/login">
-            <Button>Back to Login</Button>
-           </Link>
-           <Link href="/">
-             <Button variant="outline">Go Home</Button>
-           </Link>
+           <Button asChild>
+            <Link href="/login">Back to Login</Link>
+           </Button>
+           <Button asChild variant="outline">
+             <Link href="/">Go Home</Link>
+           </Button>
         </div>
       </div>
     </div>

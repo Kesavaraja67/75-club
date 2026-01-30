@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Sparkles } from "lucide-react";
+import { Calendar as CalendarIcon, Sparkles, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useEffect } from "react";
 import { fetchSubscriptionStatus, SubscriptionStatus } from "@/lib/subscription";
@@ -31,6 +31,14 @@ export default function CalendarPage() {
       setSelectedDate(date);
       setSelectedDayEvents(events);
   };
+
+  if (!subscriptionStatus) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center p-6">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+      </div>
+    );
+  }
 
   // FREE TIER
   if (subscriptionStatus && !isProUser) {

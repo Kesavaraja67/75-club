@@ -40,10 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.env.local
-.env*.local
-.env.production
-
 # PWA
 public/sw.js
 public/sw.js.map

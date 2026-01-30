@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,14 +36,17 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
     is_class_off: false,
   });
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // Load events for the current month
   useEffect(() => {
     const fetchEvents = async () => {
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          setLoading(false);
+          return;
+        }
 
         const start = startOfMonth(currentMonth).toISOString();
         const end = endOfMonth(currentMonth).toISOString();
@@ -91,11 +94,19 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
 
   // Handle Event Creation
   const handleCreateEvent = async () => {
-      if (!newEvent.title) return;
+      if (!newEvent.title) {
+        toast.error("Please enter an event title");
+        setIsSubmitting(false); // Reset state
+        return;
+      }
       setIsSubmitting(true);
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setIsSubmitting(false);
+        toast.error("Please sign in to add events");
+        return;
+      }
 
       const { data, error } = await supabase
           .from('calendar_events')
@@ -155,7 +166,7 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
 
 
   return (
-    <div className="flex flex-col h-full bg-white border-4 border-black box-border rounded-3xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+    <div className="relative flex flex-col h-full bg-white border-4 border-black box-border rounded-3xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
         {/* Calendar Header */}
         <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-black capitalize flex items-center gap-2">

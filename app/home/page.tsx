@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, User, Calendar, Sparkles, ArrowRight, BarChart3, Target, Zap } from "lucide-react";
 import Link from "next/link";
@@ -14,7 +14,7 @@ export default function HomePage() {
   const [email, setEmail] = useState("");
   const [tier, setTier] = useState<"free" | "pro">("free");
   const [createdAt, setCreatedAt] = useState<string>("");
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
   useEffect(() => {
