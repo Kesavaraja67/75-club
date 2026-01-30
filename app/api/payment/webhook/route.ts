@@ -1,0 +1,87 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import crypto from "crypto";
+
+export async function POST(request: Request) {
+  try {
+    const rawBody = await request.text();
+    const signature = request.headers.get("x-razorpay-signature");
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+    // 1. Verify Webhook Signature
+    if (!signature || !secret) {
+      return NextResponse.json({ error: "Missing signature or secret" }, { status: 400 });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", secret)
+      .update(rawBody)
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      console.error("Invalid webhook signature");
+      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    }
+
+    // 2. Parse Event
+    const event = JSON.parse(rawBody);
+    console.log("Webhook received:", event.event);
+
+    if (event.event === "order.paid" || event.event === "payment.captured") {
+      const payment = event.payload.payment.entity;
+      const orderId = payment.order_id;
+      const paymentId = payment.id;
+      const email = payment.email;
+
+      // 3. Update Database
+      const supabase = await createClient();
+
+      // Update payment_orders
+      const { data: orderData, error: orderError } = await supabase
+        .from("payment_orders")
+        .update({
+          status: "success",
+          razorpay_payment_id: paymentId,
+          verified_at: new Date().toISOString(),
+        })
+        .eq("razorpay_order_id", orderId)
+        .select("user_id")
+        .single();
+
+      if (orderError || !orderData) {
+        console.error("Error finding order:", orderError);
+        return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      }
+
+      const userId = orderData.user_id;
+
+      // Activate Subscription
+      const semesterEndDate = new Date();
+      semesterEndDate.setMonth(semesterEndDate.getMonth() + 6);
+
+      const { error: subError } = await supabase
+        .from("subscriptions")
+        .upsert({
+          user_id: userId,
+          plan_type: "pro",
+          status: "active",
+          current_period_start: new Date().toISOString(),
+          current_period_end: semesterEndDate.toISOString(),
+          razorpay_payment_id: paymentId,
+        });
+
+      if (subError) {
+        console.error("Subscription activation failed:", subError);
+        return NextResponse.json({ error: "Subscription failed" }, { status: 500 });
+      }
+
+      console.log(`Subscription activated via webhook for user ${userId}`);
+    }
+
+    return NextResponse.json({ status: "ok" });
+
+  } catch (error: any) {
+    console.error("Webhook error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

@@ -1,0 +1,226 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import { Subject } from "@/lib/types";
+
+interface ManualSubjectDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+  editMode?: boolean;
+  subjectToEdit?: Subject | null;
+}
+
+export default function ManualSubjectDialog({ open, onOpenChange, onSaved, editMode = false, subjectToEdit }: ManualSubjectDialogProps) {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    code: "",
+    type: "Theory",
+    totalHours: "",
+    hoursPresent: "",
+  });
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (editMode && subjectToEdit) {
+      setFormData({
+        name: subjectToEdit.name,
+        code: subjectToEdit.code || "",
+        type: subjectToEdit.type,
+        totalHours: subjectToEdit.totalHours.toString(),
+        hoursPresent: subjectToEdit.hoursPresent.toString(),
+      });
+    } else if (!open) {
+      // Reset form when dialog closes
+      setFormData({
+        name: "",
+        code: "",
+        type: "Theory",
+        totalHours: "",
+        hoursPresent: "",
+      });
+    }
+  }, [editMode, subjectToEdit, open]);
+
+  const supabase = createClient();
+
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (!formData.name || !formData.totalHours || !formData.hoursPresent) {
+        throw new Error("Please fill in all required fields");
+      }
+
+      const total = Number(formData.totalHours);
+      const present = Number(formData.hoursPresent);
+
+      if (present > total) {
+        throw new Error("Present hours cannot exceed total classes");
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      if (editMode && subjectToEdit) {
+        // Update existing subject
+        const { error } = await supabase
+          .from('subjects')
+          .update({
+            name: formData.name,
+            code: formData.code,
+            type: formData.type,
+            total_hours: total,
+            hours_present: present,
+          })
+          .eq('id', subjectToEdit.id)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+        toast.success("Subject updated successfully");
+      } else {
+        // Insert new subject
+        const { error } = await supabase
+          .from('subjects')
+          .insert({
+            user_id: user.id,
+            name: formData.name,
+            code: formData.code,
+            type: formData.type,
+            total_hours: total,
+            hours_present: present,
+            threshold: 75
+          });
+
+        if (error) throw error;
+        toast.success("Subject added successfully");
+      }
+
+      setFormData({
+        name: "",
+        code: "",
+        type: "Theory",
+        totalHours: "",
+        hoursPresent: "",
+      });
+      onSaved();
+      onOpenChange(false);
+
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to add subject";
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px] bg-white border-4 border-black rounded-3xl neo-shadow-lg">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-display font-black text-foreground flex items-center gap-2">
+            <span className="text-3xl">{editMode ? "✏️" : "📝"}</span> {editMode ? "Edit Subject" : "Add Subject Manually"}
+          </DialogTitle>
+          <DialogDescription className="text-foreground/70 font-medium">
+            Enter the details of your course here.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="text-right font-display font-bold">
+              Name
+            </Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => handleChange("name", e.target.value)}
+              className="col-span-3 border-2 rounded-xl bg-white"
+              placeholder="e.g. Mathematics"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="code" className="text-right font-display font-bold">
+              Code
+            </Label>
+            <Input
+              id="code"
+              value={formData.code}
+              onChange={(e) => handleChange("code", e.target.value)}
+              className="col-span-3 border-2 rounded-xl bg-white"
+              placeholder="e.g. MAT101"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="type" className="text-right font-display font-bold">
+              Type
+            </Label>
+            <Select 
+              value={formData.type} 
+              onValueChange={(val) => handleChange("type", val)}
+            >
+              <SelectTrigger className="col-span-3 border-2 rounded-xl bg-white">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-2 border-black rounded-xl">
+                <SelectItem value="Theory">📚 Theory</SelectItem>
+                <SelectItem value="Practical">🛠️ Practical</SelectItem>
+                <SelectItem value="Lab">🧪 Lab</SelectItem>
+                <SelectItem value="Clinical">🏥 Clinical</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="total" className="text-right font-display font-bold">
+              Total
+            </Label>
+            <Input
+              id="total"
+              type="number"
+              value={formData.totalHours}
+              onChange={(e) => handleChange("totalHours", e.target.value)}
+              className="col-span-3 border-2 rounded-xl bg-white"
+              placeholder="Total classes"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="present" className="text-right font-display font-bold">
+              Attended
+            </Label>
+            <Input
+              id="present"
+              type="number"
+              value={formData.hoursPresent}
+              onChange={(e) => handleChange("hoursPresent", e.target.value)}
+              className="col-span-3 border-2 rounded-xl bg-white"
+              placeholder="Classes attended"
+            />
+          </div>
+          <DialogFooter>
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className="font-display font-bold rounded-2xl h-12"
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editMode ? "Update Subject ✨" : "Save Subject ✨"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
