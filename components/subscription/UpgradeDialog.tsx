@@ -9,18 +9,27 @@ import { useRouter } from "next/navigation";
 
 declare global {
   interface Window {
-    Razorpay: any;
+    Razorpay: unknown;
   }
+}
+
+interface RazorpayConstructor {
+  new (options: unknown): { open: () => void };
+}
+
+interface RazorpayResponse {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
 }
 
 interface UpgradeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  feature?: string;
   message?: string;
 }
 
-export default function UpgradeDialog({ open, onOpenChange, feature, message }: UpgradeDialogProps) {
+export default function UpgradeDialog({ open, onOpenChange, message }: UpgradeDialogProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -49,7 +58,7 @@ export default function UpgradeDialog({ open, onOpenChange, feature, message }: 
         name: "The Bunk Planner",
         description: "Pro Plan - Semester Access",
         order_id: orderId,
-        handler: async function (response: any) {
+        handler: async function (response: RazorpayResponse) {
           // 3. Payment successful - verify on backend
           try {
             const verifyResponse = await fetch("/api/payment/verify", {
@@ -96,7 +105,7 @@ export default function UpgradeDialog({ open, onOpenChange, feature, message }: 
         return;
       }
 
-      const razorpay = new window.Razorpay(options);
+      const razorpay = new (window.Razorpay as RazorpayConstructor)(options);
       razorpay.open();
     } catch (error) {
       console.error("Upgrade error:", error);

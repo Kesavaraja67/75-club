@@ -68,6 +68,10 @@ export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
     const newPreviews = previews.filter((_, i) => i !== index);
     setFiles(newFiles);
     setPreviews(newPreviews);
+    
+    if (newFiles.length === 0 && fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleUpload = async () => {
@@ -98,7 +102,9 @@ export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
             }
           );
 
-          console.log(`OCR Output for Image ${i + 1}:`, text);
+          if (process.env.NODE_ENV !== "production") {
+            console.log(`OCR Output for Image ${i + 1}:`, text);
+          }
           setStatusMessage(`Parsing data for image ${i + 1}...`);
 
           // 2. Send Text to Server for Parsing
@@ -254,6 +260,7 @@ export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
                       alt={`Preview ${index + 1}`}
                       fill
                       className="object-cover"
+                      unoptimized
                     />
                     {loading && index < currentIndex && (
                       <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">

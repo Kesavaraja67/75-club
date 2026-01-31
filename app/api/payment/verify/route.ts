@@ -92,10 +92,11 @@ export async function POST(request: Request) {
       message: "Payment verified and subscription activated!",
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Verify payment error:", error);
+    const message = error instanceof Error ? error.message : "Verification failed";
     return NextResponse.json(
-      { error: error.message || "Verification failed" },
+      { error: message },
       { status: 500 }
     );
   }

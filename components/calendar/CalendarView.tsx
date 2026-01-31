@@ -39,12 +39,15 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
   const supabase = useMemo(() => createClient(), []);
 
   // Load events for the current month
+  // Load events for the current month
   useEffect(() => {
+    let cancelled = false;
+
     const fetchEvents = async () => {
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          setLoading(false);
+          if (!cancelled) setLoading(false);
           return;
         }
 
@@ -58,6 +61,8 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
             .gte('date', start)
             .lte('date', end);
 
+        if (cancelled) return;
+
         if (error) {
             console.error('Error fetching events:', error);
             // If error code 42P01 (undefined_table) or generic error on first load
@@ -70,10 +75,14 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
         } else {
             setEvents(data || []);
         }
-        setLoading(false);
+        if (!cancelled) setLoading(false);
     };
 
     fetchEvents();
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentMonth, supabase]);
 
 
@@ -209,16 +218,19 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
                  const isCurrentMonth = isSameMonth(day, currentMonth);
 
                 return (
-                    <div
+                    <button
+                        type="button"
                         key={day.toString()}
                         onClick={() => handleDateClick(day)}
                         className={cn(
-                            "min-h-[4.5rem] border-2 rounded-xl p-1.5 cursor-pointer transition-all relative flex flex-col justify-between group",
+                            "min-h-[4.5rem] border-2 rounded-xl p-1.5 cursor-pointer transition-all relative flex flex-col justify-between group text-left",
                             !isCurrentMonth && "opacity-20 bg-gray-50 border-gray-200 grayscale",
                             isCurrentMonth && "bg-white border-gray-200 hover:border-black hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
                             isSelected && "border-black bg-blue-50/50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
                             hasHoliday && "bg-red-50/50 border-red-200",
                         )}
+                        aria-pressed={isSelected}
+                        aria-current={isTodayDate ? "date" : undefined}
                     >
                         <div className="flex justify-between items-start">
                              <span className={cn(
@@ -230,12 +242,12 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
                         </div>
                         
                         {/* Event Indicators */}
-                        <div className="space-y-0.5 mt-0.5">
+                        <div className="space-y-0.5 mt-0.5 w-full">
                             {dayEvents.slice(0, 2).map(event => (
                                 <div 
                                     key={event.id} 
                                     className={cn(
-                                        "text-[9px] truncate px-1 rounded font-medium border h-4 flex items-center",
+                                        "text-[9px] truncate px-1 rounded font-medium border h-4 flex items-center w-full",
                                         event.type === 'holiday' ? "bg-red-100/80 text-red-800 border-red-200" :
                                         event.type === 'exam' ? "bg-yellow-100/80 text-yellow-800 border-yellow-200" :
                                         event.type === 'assignment' ? "bg-blue-100/80 text-blue-800 border-blue-200" :
@@ -251,7 +263,7 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </button>
                 );
             })}
         </div>

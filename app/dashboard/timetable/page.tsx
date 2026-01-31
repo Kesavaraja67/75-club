@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,8 @@ export default function TimetablePage() {
   const supabase = useMemo(() => createClient(), []);
 
   // Load data - Function declaration is hoisted
-  async function loadData(userId: string) {
+  // Load data
+  const loadData = useCallback(async (userId: string) => {
     // Load subjects
     const { data: subjectsData } = await supabase
       .from("subjects")
@@ -89,7 +90,7 @@ export default function TimetablePage() {
     if (slotsData) {
       setSlots(slotsData);
     }
-  }
+  }, [supabase]);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -111,7 +112,7 @@ export default function TimetablePage() {
     };
 
     checkAccess();
-  }, [supabase, router]);
+  }, [supabase, router, loadData]); // Added loadData dependency
 
   // Move loadData definition up or inside useEffect if it's only used there... 
   // But wait, loadData is used in handleSubmit and handleDelete too.
@@ -208,7 +209,6 @@ export default function TimetablePage() {
         <UpgradeDialog
           open={showUpgrade}
           onOpenChange={setShowUpgrade}
-          feature="Timetable"
         />
       </div>
     );

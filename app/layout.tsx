@@ -1,5 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
+import { Toaster } from "@/components/ui/sonner";
+import Navbar from "@/components/shared/Navbar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,23 +15,20 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-import { Toaster } from "@/components/ui/sonner";
-import Navbar from "@/components/shared/Navbar";
-import Script from "next/script";
-
 export const metadata: Metadata = {
   title: "The Bunk Planner",
   description: "Plan your bunks, stress-free. Track attendance and calculate safe skips.",
   manifest: "/manifest.json",
-  themeColor: "#FF6B35",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-  },
   icons: {
     icon: "/app-logo.png",
     apple: "/app-logo.png",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#FF6B35",
 };
 
 export default function RootLayout({
