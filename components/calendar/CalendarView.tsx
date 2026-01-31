@@ -141,7 +141,7 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
           setIsDialogOpen(false);
           setNewEvent({ title: "", description: "", type: "personal", is_class_off: false });
           // Notify parent of updated events for the selected date
-          onDateSelect(selectedDate, [...events, data].filter(e => isSameDay(new Date(e.date), selectedDate)));
+          onDateSelect(selectedDate, [...events, data].filter(e => isSameDay(toLocalDate(e.date), selectedDate)));
       }
       setIsSubmitting(false);
   };

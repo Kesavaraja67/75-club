@@ -39,6 +39,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No text provided for analysis" }, { status: 400 });
     }
 
+    const MAX_OCR_CHARS = 50_000;
+    if (text.length > MAX_OCR_CHARS) {
+      return NextResponse.json(
+        { error: "Text payload too large" },
+        { status: 413 }
+      );
+    }
+
     console.log("=== RECEIVED OCR TEXT ===");
     // console.log(text); // Uncomment for full debug
     console.log("=========================");

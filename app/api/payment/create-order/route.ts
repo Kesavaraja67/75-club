@@ -28,12 +28,25 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Get request body (optional: plan type if you have multiple)
+    // Fail fast if public key is missing
+    const razorpayKeyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    if (!razorpayKeyId) {
+      console.error("Missing NEXT_PUBLIC_RAZORPAY_KEY_ID");
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+
+    // 2. Get request body and validate plan
     const body = await request.json();
     const { planType = "semester" } = body;
 
-    // 3. Determine amount based on plan
-    const amount = PAYMENT_CONFIG.PRO_SEMESTER_PRICE;
+    const ALLOWED_PLANS: Record<string, number> = {
+      "semester": PAYMENT_CONFIG.PRO_SEMESTER_PRICE,
+      "yearly": 1999, // Example future plan, using same price for now if not defined in config
+    };
+
+    // Default to semester if invalid plan provided
+    const validPlanType = ALLOWED_PLANS[planType] ? planType : "semester";
+    const amount = ALLOWED_PLANS[validPlanType];
 
     // 4. Create Razorpay order
     const order = await razorpay.orders.create({
@@ -43,7 +56,7 @@ export async function POST(request: Request) {
       notes: {
         userId: user.id,
         userEmail: user.email || "",
-        planType: planType,
+        planType: validPlanType,
       },
     });
 
@@ -73,7 +86,7 @@ export async function POST(request: Request) {
       orderId: order.id,
       amount: amount,
       currency: PAYMENT_CONFIG.CURRENCY,
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      key: razorpayKeyId,
     });
 
   } catch (error: unknown) {

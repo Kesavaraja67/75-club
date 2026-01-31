@@ -78,8 +78,22 @@ export async function POST(request: Request) {
     }
 
     // 2. Create/Update subscription (Only if step 1 succeeded)
-    const semesterEndDate = new Date();
-    semesterEndDate.setMonth(semesterEndDate.getMonth() + 6); // 6 months
+    
+    // Fetch existing subscription to check for remaining time
+    const { data: existingSub } = await supabase
+      .from("subscriptions")
+      .select("current_period_end")
+      .eq("user_id", user.id)
+      .single();
+
+    const now = new Date();
+    const existingEnd = existingSub?.current_period_end ? new Date(existingSub.current_period_end) : new Date(0);
+    
+    // If user has time remaining (end date > now), extend from there. Otherwise start from now.
+    const startDate = existingEnd > now ? existingEnd : now;
+    
+    const semesterEndDate = new Date(startDate);
+    semesterEndDate.setMonth(semesterEndDate.getMonth() + 6); // Add 6 months
 
     const { error: subError } = await supabase
       .from("subscriptions")
@@ -87,7 +101,7 @@ export async function POST(request: Request) {
         user_id: user.id, // Use authenticated user ID
         plan_type: "pro",
         status: "active",
-        current_period_start: new Date().toISOString(),
+        current_period_start: startDate.toISOString(),
         current_period_end: semesterEndDate.toISOString(),
         razorpay_payment_id: razorpay_payment_id,
       });

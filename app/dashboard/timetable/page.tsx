@@ -348,6 +348,7 @@ export default function TimetablePage() {
                       size="sm"
                       onClick={() => handleDelete(slot.id)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      aria-label={`Delete ${slot.subjects?.name || 'class'}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

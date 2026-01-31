@@ -63,7 +63,9 @@ export async function POST(request: NextRequest) {
     // 5. Build context for AI with detailed calculations
     const subjectsContext = subjects && subjects.length > 0
       ? subjects.map(s => {
-          const threshold = typeof s.threshold === "number" ? s.threshold : 75;
+          const rawThreshold = typeof s.threshold === "number" ? s.threshold : 75;
+          const threshold = rawThreshold > 0 ? rawThreshold : 75; // Guard against 0 or negative
+          
           const percentage = s.total_hours > 0 
             ? Math.round((s.hours_present / s.total_hours) * 100) 
             : 0;

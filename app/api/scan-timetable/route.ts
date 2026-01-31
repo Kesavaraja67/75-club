@@ -39,16 +39,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No text provided for analysis" }, { status: 400 });
     }
 
-    console.log("=== RECEIVED TIMETABLE OCR TEXT ===");
-    console.log(text.substring(0, 500)); // Show first 500 chars for debug
-    console.log("===================================");
+    if (process.env.NODE_ENV !== "production") {
+      console.log("=== RECEIVED TIMETABLE OCR TEXT ===");
+      console.log(text.substring(0, 500)); // Show first 500 chars for debug
+      console.log("===================================");
+    }
 
     // Parse the OCR text to extract timetable slots
     const classes = parseTimetableText(text);
 
-    console.log("=== EXTRACTED CLASSES ===");
-    console.log(JSON.stringify(classes, null, 2));
-    console.log("=========================");
+    if (process.env.NODE_ENV !== "production") {
+      console.log("=== EXTRACTED CLASSES ===");
+      console.log(JSON.stringify(classes, null, 2));
+      console.log("=========================");
+    }
 
     if (classes.length === 0) {
       return NextResponse.json({ 
