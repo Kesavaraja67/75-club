@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { razorpay, PAYMENT_CONFIG, generateReceiptId, rupeesToPaise } from "@/lib/razorpay";
 import { rateLimit } from "@/lib/rate-limit";
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     // 1. Verify user is authenticated
     const supabase = await createClient();
@@ -35,29 +35,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
-    // 2. Get request body and validate plan
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-    }
-    
-    if (!body || typeof body !== "object") {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-    }
-
-    const { planType = "semester" } = body;
+    // 2. Plan configuration (Hardcoded to semester as requested)
 
     const ALLOWED_PLANS: Record<string, number> = {
       "semester": PAYMENT_CONFIG.PRO_SEMESTER_PRICE,
-      "yearly": 1999, // Example future plan, using same price for now if not defined in config
     };
 
     // Default to semester if invalid plan provided
-    const validPlanType = Object.prototype.hasOwnProperty.call(ALLOWED_PLANS, planType) 
-      ? planType 
-      : "semester";
+    const validPlanType = "semester";
     const amount = ALLOWED_PLANS[validPlanType];
 
     // 4. Create Razorpay order
@@ -76,7 +61,7 @@ export async function POST(request: Request) {
     const { error: dbError } = await supabase
       .from("payment_orders")
       .insert({
-        order_id: order.id, 
+        order_id: crypto.randomUUID(), 
         user_id: user.id,
         amount: amount,
         currency: PAYMENT_CONFIG.CURRENCY,

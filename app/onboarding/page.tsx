@@ -16,7 +16,7 @@ export default function OnboardingPage() {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        setName(user.user_metadata?.name || "there");
+        setName(user.user_metadata?.name || "Buddy");
       }
     };
     fetchUser();

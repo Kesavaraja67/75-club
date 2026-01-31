@@ -262,20 +262,27 @@ function tryParseTableRow(line: string): SubjectData | null {
   const parts = line.split(/[\|\t]+/).map(p => p.trim());
 
   if (parts.length >= 3) {
-    // Try to find numbers in the parts
-    const numbers = parts.map(p => {
-      const num = parseInt(p);
-      return isNaN(num) ? null : num;
-    }).filter((n): n is number => n !== null && n < 200);
+    // Try to find numbers in the parts, excluding percentage-like values
+    const numbers = parts
+      .map(p => {
+        // Ignore strings that look like percentages (e.g., "75.5", "75.50")
+        if (p.includes('.') && !isNaN(parseFloat(p))) return null;
+        const num = parseInt(p);
+        return isNaN(num) ? null : num;
+      })
+      .filter((n): n is number => n !== null && n < 200);
 
     if (numbers.length >= 2) {
       // Find the subject name (longest text part)
-      const textParts = parts.filter(p => !/^\d+$/.test(p) && p.length > 2);
+      const textParts = parts.filter(p => !/^\d+$/.test(p) && p.length > 2 && !p.includes('.'));
       const name = textParts.join(' ').trim();
 
       if (name.length > 2) {
-        const total = Math.max(...numbers);
-        const present = Math.min(...numbers);
+        // Robustness: Total is usually the larger number, present is smaller
+        // This handles cases where columns might be swapped during scanning
+        const [num1, num2] = numbers.slice(0, 2);
+        const total = Math.max(num1, num2);
+        const present = Math.min(num1, num2);
 
         return {
           name: cleanSubjectName(name),

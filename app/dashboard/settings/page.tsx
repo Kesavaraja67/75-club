@@ -22,7 +22,7 @@ export default function SettingsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const loadData = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
@@ -30,30 +30,34 @@ export default function SettingsPage() {
           return;
         }
   
-        setEmail(user.email || ""); // Set email from auth user
+        setEmail(user.email || "");
   
-        // Fetch profile from database
+        // 1. Fetch profile for name
         const { data: profile } = await supabase
           .from('user_profiles')
-          .select('*')
+          .select('name')
           .eq('user_id', user.id)
           .single();
   
         if (profile) {
           setName(profile.name);
-          setTier(profile.subscription_tier as "free" | "pro");
         } else {
-          // Fallback to metadata if profile doesn't exist yet (should trigger on signup but just in case)
           setName(user.user_metadata?.name || "");
         }
+
+        // 2. Fetch official subscription status (Source of Truth)
+        const { fetchSubscriptionStatus } = await import("@/lib/subscription");
+        const status = await fetchSubscriptionStatus(user.id, supabase);
+        setTier(status.tier);
+
       } catch (error) {
-        console.error("Error fetching profile:", error);
+        console.error("Error loading settings data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProfile();
+    loadData();
   }, [router, supabase]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {

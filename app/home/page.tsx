@@ -36,16 +36,20 @@ export default function HomePage() {
         // Fetch profile from database
         const { data: profile } = await supabase
           .from('user_profiles')
-          .select('*')
+          .select('name')
           .eq('user_id', user.id)
           .single();
   
         if (profile) {
           setName(profile.name);
-          setTier(profile.subscription_tier as "free" | "pro");
         } else {
           setName(user.user_metadata?.name || "");
         }
+
+        // Fetch official subscription status
+        const { fetchSubscriptionStatus } = await import("@/lib/subscription");
+        const status = await fetchSubscriptionStatus(user.id, supabase);
+        setTier(status.tier);
       } catch (error) {
         console.error("Error fetching profile:", error);
       } finally {

@@ -50,6 +50,7 @@ export default function Navbar() {
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error("Logout failed:", error);
+      return; // Stop if sign out failed
     }
     router.push("/");
     router.refresh();

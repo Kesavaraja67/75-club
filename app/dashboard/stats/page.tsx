@@ -29,12 +29,12 @@ export default function StatsPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      // Fetch subscription first
-      const status = await fetchSubscriptionStatus();
-      setSubscriptionStatus(status);
-      
-      // Then fetch subjects
       try {
+        // Fetch subscription first
+        const status = await fetchSubscriptionStatus();
+        setSubscriptionStatus(status);
+        
+        // Then fetch subjects
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {

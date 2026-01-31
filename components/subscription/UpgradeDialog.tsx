@@ -6,6 +6,7 @@ import { Check, X, Sparkles, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 declare global {
   interface Window {
@@ -51,6 +52,9 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
 
       const { orderId, amount, currency, key } = await response.json();
 
+      // Get current user email for prefill
+      const { data: { user: authUser } } = await createClient().auth.getUser();
+
       // 2. Initialize Razorpay
       const options = {
         key: key,
@@ -93,7 +97,7 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
           },
         },
         prefill: {
-          email: "", // Will be filled from user data
+          email: authUser?.email || "", 
         },
         theme: {
           color: "#FF6B35", // Your brand color

@@ -64,8 +64,6 @@ export default function TimetablePage() {
   const supabase = useMemo(() => createClient(), []);
 
   // Load data - Function declaration is hoisted
-  // Load data
-  // Load data
   const loadData = useCallback(async (userId: string) => {
     // Load subjects
     const { data: subjectsData, error: subjectsError } = await supabase

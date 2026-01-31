@@ -60,6 +60,17 @@ export default function ResultsDialog({ open, onOpenChange, results, onSaved }: 
       return;
     }
 
+    const validResults = data.filter(sub => 
+      sub.name && 
+      Number.isFinite(sub.total_hours) && 
+      Number.isFinite(sub.hours_present)
+    );
+    
+    if (validResults.length === 0) {
+      toast.error("No valid subjects to save.");
+      return;
+    }
+
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
