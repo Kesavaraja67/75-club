@@ -281,7 +281,7 @@ export default function DashboardPage() {
           <div className="space-y-4">
              <div className="flex justify-between items-center md:hidden">
                <h2 className="text-xl font-semibold tracking-tight">Your Subjects</h2>
-               <Button size="sm" variant="ghost" onClick={() => setIsManualOpen(true)}>
+               <Button size="sm" variant="ghost" onClick={handleManualAdd}>
                  <Plus className="h-4 w-4 mr-1" /> Add
                </Button>
              </div>

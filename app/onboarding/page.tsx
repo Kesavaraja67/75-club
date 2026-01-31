@@ -8,7 +8,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Sparkles, ArrowRight, CheckCircle2 } from "lucide-react";
 
 export default function OnboardingPage() {
-  const [name, setName] = useState("");
+  const [name, setName] = useState("there");
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 

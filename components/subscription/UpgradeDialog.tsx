@@ -50,7 +50,7 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
         throw new Error("Failed to create order");
       }
 
-      const { orderId, amount, currency, key } = await response.json();
+      const { orderId, amountInRupees, currency, key } = await response.json();
 
       // Get current user email for prefill
       const { data: { user: authUser } } = await createClient().auth.getUser();
@@ -58,7 +58,7 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
       // 2. Initialize Razorpay
       const options = {
         key: key,
-        amount: amount * 100, // Convert to paise
+        amount: amountInRupees * 100, // Convert rupees to paise (Razorpay standard)
         currency: currency,
         name: "75 Club",
         description: "Pro Plan - Semester Access",

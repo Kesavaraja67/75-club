@@ -129,7 +129,7 @@ export default function ResultsDialog({ open, onOpenChange, results, onSaved }: 
       const invalid = newSubjects.find(sub => {
         const total = Number(sub.total_hours);
         const present = Number(sub.hours_present);
-        return total < 0 || present < 0 || present > total;
+        return !Number.isFinite(total) || !Number.isFinite(present) || total < 0 || present < 0 || present > total;
       });
 
       if (invalid) {

@@ -32,7 +32,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
     const { text } = body;
 
     if (!text || typeof text !== 'string') {
@@ -307,15 +312,16 @@ function isSubjectNameValid(name: string): boolean {
   const invalidTerms = [
     "dashboard", "fee", "payment", "personal", "details", "course", "list",
     "grade", "mark", "credit", "attendance", "exam", "revaluation",
-    "provisional", "internal", "abc", "id", "hallticket",
+    "provisional", "internal", "abc", "hallticket",
     "photo", "degree", "scribe", "request", "logout", "cumulative",
     "average", "total"
   ];
   
   const lowerName = name.toLowerCase();
   
-  // Check against invalid terms
-  if (invalidTerms.some(term => lowerName.includes(term))) {
+  // Tokenize and check against invalid terms (prevents "id" from rejecting "Digital Signal Processing")
+  const tokens = lowerName.split(/[^a-z0-9]+/).filter(Boolean);
+  if (tokens.some(token => invalidTerms.includes(token))) {
     return false;
   }
   
