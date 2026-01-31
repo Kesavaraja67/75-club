@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fetchSubscriptionStatus } from "@/lib/subscription";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +22,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "AI Buddy is a Pro feature. Please upgrade to access." },
         { status: 403 }
+      );
+    }
+
+    // Rate Limit: 20 messages per minute per user
+    const { success, reset } = await rateLimit(`chat:${user.id}`, 20, 60 * 1000);
+    if (!success) {
+      return NextResponse.json(
+        { error: "You're chatting too fast! Take a breath." },
+        { 
+          status: 429,
+          headers: { 'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString() }
+        }
       );
     }
 

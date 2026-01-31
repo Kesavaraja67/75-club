@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { razorpay, PAYMENT_CONFIG, generateReceiptId, rupeesToPaise } from "@/lib/razorpay";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -12,6 +13,18 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    // Rate Limit: 5 order creations per minute (prevent spamming orders)
+    const { success, reset } = await rateLimit(`order:${user.id}`, 5, 60 * 1000);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Too many payment attempts. Please wait a minute." },
+        { 
+          status: 429,
+          headers: { 'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString() }
+        }
       );
     }
 

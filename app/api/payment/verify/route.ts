@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import crypto from "crypto";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -9,6 +10,18 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate Limit: 5 verification attempts per minute
+    const { success, reset } = await rateLimit(`verify:${user.id}`, 5, 60 * 1000);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Too many verification attempts. Please wait a minute." },
+        { 
+          status: 429,
+          headers: { 'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString() }
+        }
+      );
     }
 
     // Get payment details from request

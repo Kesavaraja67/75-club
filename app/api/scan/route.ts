@@ -1,7 +1,37 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { fetchSubscriptionStatus } from "@/lib/subscription";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { isProUser } = await fetchSubscriptionStatus(user.id, supabase);
+    if (!isProUser) {
+      return NextResponse.json(
+        { error: "AI Scan is a Pro feature. Please upgrade to access." },
+        { status: 403 }
+      );
+    }
+
+    // Rate Limit: 5 scans per minute per user
+    const { success, reset } = await rateLimit(`scan:${user.id}`, 5, 60 * 1000);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Too many scan requests. Please try again in a minute." },
+        { 
+          status: 429,
+          headers: { 'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString() }
+        }
+      );
+    }
+
     const body = await req.json();
     const { text } = body;
 
