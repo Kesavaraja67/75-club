@@ -89,7 +89,9 @@ function parseTimetableText(text: string): TimetableClass[] {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   const classes: TimetableClass[] = [];
 
-  console.log("Parsing timetable lines:", lines.length);
+  if (process.env.NODE_ENV !== "production") {
+    console.log("Parsing timetable lines:", lines.length);
+  }
 
   const dayMap: { [key: string]: number } = {
     'sunday': 0, 'sun': 0,
@@ -113,7 +115,11 @@ function parseTimetableText(text: string): TimetableClass[] {
       currentDay = dayMap[dayName] ?? -1;
       // Don't continue - try to extract class info from the rest of the line
       // Strip the day name to avoid re-detecting it or confusing the parser
-      const lineWithoutDay = line.replace(new RegExp(`\\b${dayMatch[0]}\\b`, 'i'), '').trim();
+      
+      // Fix: Use literal replacement to avoid ReDoS from dynamic RegExp
+      // dayMatch[0] is guaranteed to be a day name from the regex above, but we proceed safely
+      const lineWithoutDay = line.replace(dayMatch[0], '').trim();
+      
       if (lineWithoutDay) {
         const classData = extractClassInfo(lineWithoutDay, currentDay);
         if (classData) {
@@ -151,13 +157,20 @@ function extractClassInfo(line: string, dayOfWeek: number): TimetableClass | nul
     const endHour = parseInt(match1[3]);
     const endMin = match1[4];
 
-    const startTime = `${String(startHour).padStart(2, '0')}:${startMin}`;
-    const endTime = `${String(endHour).padStart(2, '0')}:${endMin}`;
-
     // Validate times
     if (startHour > 23 || parseInt(startMin) > 59 || endHour > 23 || parseInt(endMin) > 59) {
       return null;
     }
+
+    // Validate that start time is before end time
+    const startTotal = startHour * 60 + parseInt(startMin);
+    const endTotal = endHour * 60 + parseInt(endMin);
+    if (startTotal >= endTotal) {
+      return null;
+    }
+
+    const startTime = `${String(startHour).padStart(2, '0')}:${startMin}`;
+    const endTime = `${String(endHour).padStart(2, '0')}:${endMin}`;
 
     // Extract subject name (everything after the time)
     const subjectPart = line.substring(match1.index! + match1[0].length).trim();
@@ -214,13 +227,20 @@ function extractClassInfo(line: string, dayOfWeek: number): TimetableClass | nul
     if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
     if (endPeriod === 'AM' && endHour === 12) endHour = 0;
 
-    const startTime = `${String(startHour).padStart(2, '0')}:${startMin}`;
-    const endTime = `${String(endHour).padStart(2, '0')}:${endMin}`;
-
     // Validate times
     if (startHour > 23 || parseInt(startMin) > 59 || endHour > 23 || parseInt(endMin) > 59) {
       return null;
     }
+
+    // Validate that start time is before end time
+    const startTotal = startHour * 60 + parseInt(startMin);
+    const endTotal = endHour * 60 + parseInt(endMin);
+    if (startTotal >= endTotal) {
+      return null;
+    }
+
+    const startTime = `${String(startHour).padStart(2, '0')}:${startMin}`;
+    const endTime = `${String(endHour).padStart(2, '0')}:${endMin}`;
 
     // Extract subject name
     const subjectPart = line.substring(match2.index! + match2[0].length).trim();

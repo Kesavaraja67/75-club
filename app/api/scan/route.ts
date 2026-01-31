@@ -47,16 +47,20 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log("=== RECEIVED OCR TEXT ===");
-    // console.log(text); // Uncomment for full debug
-    console.log("=========================");
+    if (process.env.NODE_ENV !== "production") {
+      console.log("=== RECEIVED OCR TEXT ===");
+      // console.log(text); // Uncomment for full debug
+      console.log("=========================");
+    }
 
     // Parse the OCR text to extract subjects
     const subjects = parseAttendanceTable(text);
 
-    console.log("=== EXTRACTED SUBJECTS ===");
-    console.log(JSON.stringify(subjects, null, 2));
-    console.log("=========================");
+    if (process.env.NODE_ENV !== "production") {
+      console.log("=== EXTRACTED SUBJECTS ===");
+      console.log(JSON.stringify(subjects, null, 2));
+      console.log("=========================");
+    }
 
     if (subjects.length === 0) {
       return NextResponse.json({ 
@@ -91,7 +95,9 @@ function parseAttendanceTable(text: string) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   const subjects: SubjectData[] = [];
 
-  console.log("Parsing lines:", lines.length);
+  if (process.env.NODE_ENV !== "production") {
+    console.log("Parsing lines:", lines.length);
+  }
 
   // Clean up the text first - remove timestamps and common noise
   const cleanedLines = lines.map(line => {
@@ -181,10 +187,16 @@ function tryParseWithNumbers(line: string): SubjectData | null {
     const num1 = parseInt(match[2]);
     const num2 = parseInt(match[3]);
     
-    // Determine which is total and which is present
-    // Usually: total >= present
-    const total = Math.max(num1, num2);
-    const present = Math.min(num1, num2);
+    // Trust input order: first number is total, second is present
+    const total = num1;
+    const present = num2;
+
+    // Flag potential OCR errors where present > total
+    if (present > total) {
+      console.warn("OCR anomaly: present > total for line:", line);
+      // We accept it anyway as raw data, or return null if strict
+      // return null; 
+    }
 
     // Skip if numbers are too large (likely not hours)
     if (total > 200 || present > 200) return null;
@@ -225,8 +237,8 @@ function tryParseWithPercentage(line: string): SubjectData | null {
       return null;
     }
 
-    // Calculate hours from percentage (assume 100 total)
-    const total = 100;
+    // Note: These are synthetic values derived from percentage only
+    const total = 100; // Placeholder - actual hours unknown
     const present = Math.round(percentage);
 
     return {
@@ -321,11 +333,8 @@ function extractCourseCode(text: string): string {
   // Try to fix malformed codes like "2imeo104t" -> "21ME0104T"
   const malformedMatch = text.match(/\b(\d[a-z]{2,4}\d{3,4}[a-z]?)\b/i);
   if (malformedMatch) {
-    let code = malformedMatch[1];
-    // Add leading digit if missing
-    if (code.length > 0 && /^\d[a-z]/i.test(code)) {
-      code = '2' + code; // Assume 21 prefix for SRM
-    }
+    const code = malformedMatch[1];
+    // Return as-is in uppercase; institution-specific prefix correction is unreliable
     return code.toUpperCase();
   }
   

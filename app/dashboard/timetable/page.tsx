@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Clock, Plus, Trash2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { fetchSubscriptionStatus } from "@/lib/subscription";
 import UpgradeDialog from "@/components/subscription/UpgradeDialog";
 
@@ -64,20 +65,24 @@ export default function TimetablePage() {
 
   // Load data - Function declaration is hoisted
   // Load data
+  // Load data
   const loadData = useCallback(async (userId: string) => {
     // Load subjects
-    const { data: subjectsData } = await supabase
+    const { data: subjectsData, error: subjectsError } = await supabase
       .from("subjects")
       .select("id, name, code")
       .eq("user_id", userId)
       .order("name");
 
+    if (subjectsError) {
+      console.error("Error loading subjects:", subjectsError);
+    }
     if (subjectsData) {
       setSubjects(subjectsData);
     }
 
     // Load timetable slots
-    const { data: slotsData } = await supabase
+    const { data: slotsData, error: slotsError } = await supabase
       .from("timetable_slots")
       .select(`
         *,
@@ -87,6 +92,9 @@ export default function TimetablePage() {
       .order("day_of_week")
       .order("start_time");
 
+    if (slotsError) {
+      console.error("Error loading timetable:", slotsError);
+    }
     if (slotsData) {
       setSlots(slotsData);
     }
@@ -112,21 +120,22 @@ export default function TimetablePage() {
     };
 
     checkAccess();
-  }, [supabase, router, loadData]); // Added loadData dependency
-
-  // Move loadData definition up or inside useEffect if it's only used there... 
-  // But wait, loadData is used in handleSubmit and handleDelete too.
-  // So loadData should be defined normally. 
-  // Let's wrapping checkAccess and loadData in useCallback? 
-  // Or simpler: define loadData first, then checkAccess (wrapped in useCallback), then useEffect using checkAccess.
-  
-  // Implementation below: rearranging.
-
-  // Load data - Function declaration is hoisted
-  // Implementation below: rearranging.
+  }, [supabase, router, loadData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Custom Validation
+    if (!formData.subject_id || !formData.day_of_week) {
+      toast.error("Please select both a subject and a day.");
+      return;
+    }
+
+    if (formData.start_time >= formData.end_time) {
+      toast.error("End time must be after start time");
+      return;
+    }
+
     setSubmitting(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -146,8 +155,9 @@ export default function TimetablePage() {
 
     if (error) {
       console.error("Error adding slot:", error);
-      alert("Failed to add timetable slot. Please try again.");
+      toast.error("Failed to add timetable slot. Please try again.");
     } else {
+      toast.success("Class added successfully!");
       // Reset form
       setFormData({
         subject_id: "",
@@ -173,12 +183,19 @@ export default function TimetablePage() {
 
     if (error) {
       console.error("Error deleting slot:", error);
-      alert("Failed to delete slot.");
+      toast.error("Failed to delete slot.");
     } else {
+      toast.success("Class deleted");
       const { data: { user } } = await supabase.auth.getUser();
       if (user) await loadData(user.id);
     }
   };
+
+  // Group slots by day (memoized)
+  const slotsByDay = useMemo(() => DAYS.map(day => ({
+    ...day,
+    slots: slots.filter(s => s.day_of_week === day.value),
+  })), [slots]);
 
   if (loading) {
     return (
@@ -213,12 +230,6 @@ export default function TimetablePage() {
       </div>
     );
   }
-
-  // Group slots by day
-  const slotsByDay = DAYS.map(day => ({
-    ...day,
-    slots: slots.filter(s => s.day_of_week === day.value),
-  }));
 
   return (
     <div className="p-6 max-w-6xl mx-auto">

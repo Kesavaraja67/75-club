@@ -27,9 +27,10 @@ interface UpgradeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   message?: string;
+  feature?: string;
 }
 
-export default function UpgradeDialog({ open, onOpenChange, message }: UpgradeDialogProps) {
+export default function UpgradeDialog({ open, onOpenChange, message, feature }: UpgradeDialogProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -183,14 +184,22 @@ export default function UpgradeDialog({ open, onOpenChange, message }: UpgradeDi
                   <p className="text-sm text-gray-700 font-medium">Everything you need</p>
                 </div>
                 <div className="space-y-2 mb-4">
-                  {proFeatures.map((feature, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
-                      <span className="text-sm text-black font-medium">
-                        {feature.name}
-                      </span>
-                    </div>
-                  ))}
+                  {proFeatures.map((f, index) => {
+                     // Simple match: check if the feature name contains the passed feature string (or vice versa)
+                     const isHighlighted = feature && (
+                        f.name.toLowerCase().includes(feature.toLowerCase()) || 
+                        feature.toLowerCase().includes(f.name.toLowerCase())
+                     );
+                     
+                     return (
+                        <div key={index} className={`flex items-center gap-2 ${isHighlighted ? 'bg-yellow-100/50 -mx-2 px-2 py-1 rounded-lg' : ''}`}>
+                           <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                           <span className={`text-sm text-black ${isHighlighted ? 'font-black' : 'font-medium'}`}>
+                           {f.name}
+                           </span>
+                        </div>
+                     );
+                  })}
                 </div>
                 <div className="mt-6 pt-4 border-t-2 border-black">
                   <div className="flex flex-col items-center">

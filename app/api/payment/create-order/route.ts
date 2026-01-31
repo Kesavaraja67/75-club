@@ -36,7 +36,17 @@ export async function POST(request: Request) {
     }
 
     // 2. Get request body and validate plan
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+    
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
     const { planType = "semester" } = body;
 
     const ALLOWED_PLANS: Record<string, number> = {
@@ -45,7 +55,9 @@ export async function POST(request: Request) {
     };
 
     // Default to semester if invalid plan provided
-    const validPlanType = ALLOWED_PLANS[planType] ? planType : "semester";
+    const validPlanType = Object.prototype.hasOwnProperty.call(ALLOWED_PLANS, planType) 
+      ? planType 
+      : "semester";
     const amount = ALLOWED_PLANS[validPlanType];
 
     // 4. Create Razorpay order

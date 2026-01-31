@@ -38,11 +38,20 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Get user's message from request
-    const { message } = await request.json();
-    if (!message || typeof message !== "string") {
+    const { message: rawMessage } = await request.json();
+    const message = typeof rawMessage === "string" ? rawMessage.trim() : "";
+
+    if (!message) {
       return NextResponse.json(
         { error: "Message is required" },
         { status: 400 }
+      );
+    }
+
+    if (message.length > 2000) {
+      return NextResponse.json(
+        { error: "Message too long" },
+        { status: 413 }
       );
     }
 
@@ -101,7 +110,7 @@ export async function POST(request: NextRequest) {
     const currentDay = istNow.getUTCDay(); // 0=Sunday, 1=Monday, etc.
     const currentTime = `${String(istNow.getUTCHours()).padStart(2, '0')}:${String(istNow.getUTCMinutes()).padStart(2, '0')}`;
 
-    const { data: todayClasses } = await supabase
+    const { data: todayClasses, error: timetableError } = await supabase
       .from("timetable_slots")
       .select(`
         *,
@@ -110,6 +119,14 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.id)
       .eq("day_of_week", currentDay)
       .order("start_time");
+
+    if (timetableError) {
+      console.error("Error fetching timetable:", timetableError);
+      return NextResponse.json(
+        { error: "Failed to fetch timetable" },
+        { status: 500 }
+      );
+    }
 
     const toMinutes = (time: string) => {
       const parts = time.split(":");
