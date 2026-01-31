@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,11 +20,13 @@ function SignupForm() {
   const [success, setSuccess] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const supabase = useMemo(() => createClient(), []);
 
   // Get redirect path, ensuring it's relative
   const rawRedirect = searchParams.get("redirect") || "/";
   const redirectPath = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
+  const safeRedirect = redirectPath === pathname ? "/" : redirectPath;
 
   // Redirect if already logged in - CRITICAL AUTH GUARD
   useEffect(() => {
@@ -38,7 +40,7 @@ function SignupForm() {
         
         if (user) {
           // User is logged in - redirect immediately
-          router.replace(redirectPath);
+          router.replace(safeRedirect);
         } else {
           // User is not logged in - show form
           setCheckingAuth(false);
@@ -56,7 +58,7 @@ function SignupForm() {
     return () => {
       isMounted = false;
     };
-  }, [router, supabase, redirectPath]);
+  }, [router, supabase, safeRedirect]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +74,7 @@ function SignupForm() {
         email: trimmedEmail,
         password,
         options: {
-          emailRedirectTo: `${location.origin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`,
+          emailRedirectTo: `${location.origin}/auth/callback?redirect=${encodeURIComponent(safeRedirect)}`,
           data: {
             name: name.trim(),
           },
@@ -119,7 +121,7 @@ function SignupForm() {
   if (checkingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-black" />
+        <Loader2 className="h-8 w-8 animate-spin text-black dark:text-white" />
       </div>
     );
   }
@@ -140,7 +142,7 @@ function SignupForm() {
              </div>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Link href={`/login?redirect=${encodeURIComponent(redirectPath)}`}>
+            <Link href={`/login?redirect=${encodeURIComponent(safeRedirect)}`}>
               <Button variant="outline" className="border-2 border-black hover:bg-gray-100 font-bold rounded-xl">Back to Login</Button>
             </Link>
           </CardFooter>
@@ -205,7 +207,7 @@ function SignupForm() {
               <div className="p-3 text-sm text-red-500 bg-red-50 border-2 border-red-200 rounded-xl font-medium">
                 {error}
                 {error.toLowerCase().includes("already registered") && (
-                  <Link href={`/login?redirect=${encodeURIComponent(redirectPath)}`} className="block mt-2 text-red-700 underline font-bold">
+                  <Link href={`/login?redirect=${encodeURIComponent(safeRedirect)}`} className="block mt-2 text-red-700 underline font-bold">
                     Go to Login →
                   </Link>
                 )}
@@ -225,7 +227,7 @@ function SignupForm() {
         <CardFooter className="flex justify-center">
           <div className="text-sm font-medium text-gray-600">
             Already have an account?{" "}
-            <Link href={`/login?redirect=${encodeURIComponent(redirectPath)}`} className="text-primary hover:underline font-bold text-black">
+            <Link href={`/login?redirect=${encodeURIComponent(safeRedirect)}`} className="text-primary hover:underline font-bold text-black">
               Sign in
             </Link>
           </div>
@@ -237,7 +239,7 @@ function SignupForm() {
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900"><Loader2 className="h-8 w-8 animate-spin text-black" /></div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900"><Loader2 className="h-8 w-8 animate-spin text-black dark:text-white" /></div>}>
       <SignupForm />
     </Suspense>
   );

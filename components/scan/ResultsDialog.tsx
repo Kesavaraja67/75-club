@@ -142,8 +142,6 @@ export default function ResultsDialog({ open, onOpenChange, results, onSaved }: 
       toast.success(`Successfully added ${newSubjects.length} new subject(s)!`);
       onSaved();
       onOpenChange(false);
-      onSaved();
-      onOpenChange(false);
     } catch (error: unknown) {
       console.error("Save error:", error);
       toast.error("An error occurred while saving");

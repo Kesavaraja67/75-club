@@ -15,36 +15,20 @@ interface AttendanceCardProps {
 }
 
 function calculateValues(subject: Subject) {
-  const T = subject.totalHours || 1; // Prevent division by zero
+  // Validate and clamp inputs
+  const T = Math.max(1, subject.totalHours);
   const percentage = (subject.hoursPresent / T) * 100;
-  const t = subject.threshold;
+  
+  // Clamp threshold between 1 and 99 to avoid Infinity in bunkLimit/required
+  const t = Math.max(1, Math.min(99, subject.threshold)) / 100;
   const p = subject.hoursPresent;
 
-  let bunkLimit = 0;
-  let required = 0;
+  // bunkLimit = floor((p - t*T) / t)
+  const bunkLimit = Math.max(0, Math.floor((p - t * T) / t));
 
-  if (percentage >= t) {
-    // Safe: How many can I bunk?
-    // Formula: floor((Present - (Threshold * Total)) / Threshold)
-    // Actually easier: standard formula for "how many classes can I miss and stay above X" requires knowing future classes.
-    // Simplified "Process" logic for MVP:
-    // If I miss next N classes, will I drop below?
-    // Let's use the provided prompts logic:
-    // Bunk Limit = floor((Attended - (Threshold × Total)) / Threshold)
-    // Note: This formula assumes we are "converting" attended classes to missed classes which isn't quite right physically,
-    // but the standard "Margin of Safety" formula is:
-    // M = (P / Threshold) - T 
-    // Let's stick to the prompt's suggested or a robust derived one:
-    // Max Bunks = floor((Present * 100 - Threshold * Total) / Threshold) 
-    bunkLimit = Math.floor((p * 100 - t * T) / t);
-  } else {
-    // Danger: How many need to attend?
-    // Required = ceil((Threshold * Total - Attended) / (1 - Threshold))
-    // Actually: ceil((Threshold * (Total + x) - Present - x) ... wait.
-    // Standard recovery formula: x = (Threshold * Total - Present * 100) / (100 - Threshold)
-    required = Math.ceil((t * T - p * 100) / (100 - t));
-  }
-  
+  // required = ceil((t*T - p) / (1 - t))
+  const required = Math.max(0, Math.ceil((t * T - p) / (1 - t)));
+
   return { percentage, bunkLimit, required };
 }
 

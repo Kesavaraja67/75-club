@@ -129,7 +129,10 @@ export default function TimetablePage() {
     setSubmitting(true);
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setSubmitting(false);
+      return;
+    }
 
     const { error } = await supabase.from("timetable_slots").insert({
       user_id: user.id,

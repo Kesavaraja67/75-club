@@ -52,7 +52,7 @@ export async function fetchSubscriptionStatus(userId?: string, client?: Supabase
       targetUserId = user.id;
     }
 
-    console.log("[Subscription] Fetching for user:", targetUserId);
+    // console.log("[Subscription] Fetching for user:", targetUserId);
 
     // Fetch subscription from subscriptions table
     const { data: subscription, error } = await supabase
@@ -72,7 +72,7 @@ export async function fetchSubscriptionStatus(userId?: string, client?: Supabase
       return DEFAULT_FREE_STATUS;
     }
 
-    console.log("[Subscription] Subscription data:", subscription);
+    // console.log("[Subscription] Subscription data:", subscription);
 
     const tier = (subscription.plan_type as SubscriptionTier) || 'free';
     const endDate = subscription.current_period_end ? new Date(subscription.current_period_end) : null;

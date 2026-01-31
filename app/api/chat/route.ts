@@ -50,13 +50,14 @@ export async function POST(request: NextRequest) {
     // 5. Build context for AI with detailed calculations
     const subjectsContext = subjects && subjects.length > 0
       ? subjects.map(s => {
+          const threshold = typeof s.threshold === "number" ? s.threshold : 75;
           const percentage = s.total_hours > 0 
             ? Math.round((s.hours_present / s.total_hours) * 100) 
             : 0;
           
           // Calculate how many classes can be safely bunked
           const canBunk = s.total_hours > 0
-            ? Math.floor((s.hours_present - (0.75 * s.total_hours)) / 0.75)
+            ? Math.floor((s.hours_present * 100 - threshold * s.total_hours) / threshold)
             : 0;
           
           return {
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
             hoursPresent: s.hours_present,
             percentage,
             canSafelyBunk: Math.max(0, canBunk),
-            status: percentage >= 75 ? 'safe' : 'danger'
+            status: percentage >= threshold ? 'safe' : 'danger'
           };
         })
       : [];
@@ -95,16 +96,29 @@ export async function POST(request: NextRequest) {
       .eq("day_of_week", currentDay)
       .order("start_time");
 
+    const toMinutes = (time: string) => {
+      const parts = time.split(":");
+      const h = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      return h * 60 + m;
+    };
+    const currentMinutes = toMinutes(currentTime);
+
     const timetableContext = todayClasses && todayClasses.length > 0
-      ? todayClasses.map(slot => ({
-          subject: slot.subjects?.name || "Unknown",
-          code: slot.subjects?.code || "",
-          startTime: slot.start_time,
-          endTime: slot.end_time,
-          room: slot.room_number || "N/A",
-          isNow: currentTime >= slot.start_time && currentTime <= slot.end_time,
-          isUpcoming: currentTime < slot.start_time
-        }))
+      ? todayClasses.map(slot => {
+          const startMinutes = toMinutes(slot.start_time);
+          const endMinutes = toMinutes(slot.end_time);
+          
+          return {
+            subject: slot.subjects?.name || "Unknown",
+            code: slot.subjects?.code || "",
+            startTime: slot.start_time,
+            endTime: slot.end_time,
+            room: slot.room_number || "N/A",
+            isNow: currentMinutes >= startMinutes && currentMinutes <= endMinutes,
+            isUpcoming: currentMinutes < startMinutes
+          };
+        })
       : [];
 
     // 7. Build enhanced system prompt with timetable data

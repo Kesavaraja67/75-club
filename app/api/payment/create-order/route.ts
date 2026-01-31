@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       receipt: generateReceiptId(),
       notes: {
         userId: user.id,
-        userEmail: user.email!,
+        userEmail: user.email || "",
         planType: planType,
       },
     });
@@ -48,7 +48,11 @@ export async function POST(request: Request) {
 
     if (dbError) {
       console.error("Database error:", dbError);
-      // Continue anyway - order is created in Razorpay
+      // Attempt to cancel the Razorpay order or return error
+      return NextResponse.json(
+        { error: "Failed to create order record" },
+        { status: 500 }
+      );
     }
 
     // 6. Return order details to frontend

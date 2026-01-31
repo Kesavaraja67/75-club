@@ -5,7 +5,7 @@ SET subscription_tier = 'free'
 WHERE user_id IN (
   SELECT id 
   FROM auth.users
-  WHERE email NOT IN ('admin@example.com') -- Replace with your admin email
+  WHERE email NOT IN ('srikesavaraja@gmail.com') -- Replace with your admin email
 );
 
 -- (Optional) If you want to ensure the admin is PRO, uncomment the following lines:
@@ -14,5 +14,5 @@ WHERE user_id IN (
 -- WHERE user_id IN (
 --   SELECT id 
 --   FROM auth.users 
---   WHERE email = 'admin@example.com' -- Replace with your admin email
+--   WHERE email = 'srikesavaraja@gmail.com' -- Replace with your admin email
 -- );

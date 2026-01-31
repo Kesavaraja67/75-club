@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,12 +40,16 @@ export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
 
   useEffect(() => {
     return () => {
-      previews.forEach(url => URL.revokeObjectURL(url));
+      previews.forEach(url => {
+        URL.revokeObjectURL(url);
+      });
     };
   }, [previews]);
 
   const clearFiles = () => {
-    previews.forEach(url => URL.revokeObjectURL(url));
+    previews.forEach(url => {
+      URL.revokeObjectURL(url);
+    });
     setFiles([]);
     setPreviews([]);
     setCurrentIndex(0);

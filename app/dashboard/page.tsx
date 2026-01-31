@@ -213,9 +213,9 @@ export default function DashboardPage() {
           </p>
           {/* Subject Count Indicator */}
           <div className="mt-2 inline-flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full border-2 border-gray-300">
-            <span className="text-sm font-bold text-gray-700">
-              {subjects.length}/{subjectLimit === Infinity ? '∞' : subjectLimit} subjects
-            </span>
+                <h3 className="font-display font-black text-lg text-black">
+                  {subjects.length}/{!isFinite(subjectLimit) ? '∞' : subjectLimit} subjects
+                </h3>
             {subjects.length >= subjectLimit && subjectLimit !== Infinity && (
               <span className="text-xs bg-yellow-400 text-black px-2 py-0.5 rounded-full font-bold">
                 LIMIT REACHED

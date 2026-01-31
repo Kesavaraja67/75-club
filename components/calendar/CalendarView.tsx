@@ -145,14 +145,19 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
            toast.success("Event deleted");
            const updatedEvents = events.filter(e => e.id !== eventId);
            setEvents(updatedEvents);
-           onDateSelect(selectedDate, updatedEvents.filter(e => isSameDay(new Date(e.date), selectedDate)));
+           onDateSelect(selectedDate, updatedEvents.filter(e => isSameDay(toLocalDate(e.date), selectedDate)));
       }
   }
 
+  // Helper to parse YYYY-MM-DD to local Date object
+  const toLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
 
   // Helper to get events for a specific day
   const getEventsForDay = (day: Date) => {
-      return events.filter(event => isSameDay(new Date(event.date), day));
+      return events.filter(event => isSameDay(toLocalDate(event.date), day));
   };
   
   const handleDateClick = (day: Date) => {
@@ -197,7 +202,8 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
             {days.map((day) => {
                  const dayEvents = getEventsForDay(day);
                  const hasHoliday = dayEvents.some(e => e.type === 'holiday');
-                 const isSelected = isSameDay(day, selectedDate);
+                 const isSelected = selectedDate && isSameDay(day, selectedDate);
+                 const isTodayDate = isToday(day);
                  const isCurrentMonth = isSameMonth(day, currentMonth);
 
                 return (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,11 +18,13 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const supabase = useMemo(() => createClient(), []);
   
   // Get redirect path, ensuring it's relative to prevent Open Redirects
   const rawRedirect = searchParams.get("redirect") || "/";
   const redirectPath = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
+  const safeRedirect = redirectPath === pathname ? "/" : redirectPath;
 
   // Redirect if already logged in
   useEffect(() => {
@@ -35,7 +37,7 @@ function LoginForm() {
         if (!isMounted) return;
         
         if (user) {
-          router.replace(redirectPath);
+          router.replace(safeRedirect);
         } else {
           setCheckingAuth(false);
         }
@@ -52,7 +54,7 @@ function LoginForm() {
     return () => {
       isMounted = false;
     };
-  }, [router, supabase, redirectPath]);
+  }, [router, supabase, safeRedirect]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +87,7 @@ function LoginForm() {
         // Successful login
         if (data.user) {
           // Force a refresh to update the session
-          router.push(redirectPath);
+          router.push(safeRedirect);
           router.refresh();
         } else {
           setError("Login failed. Please try again.");
@@ -103,7 +105,7 @@ function LoginForm() {
   if (checkingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-black" />
+        <Loader2 className="h-8 w-8 animate-spin text-black dark:text-white" />
       </div>
     );
   }
@@ -181,7 +183,7 @@ function LoginForm() {
         <CardFooter className="flex justify-center">
           <div className="text-sm font-medium text-gray-600">
             Don&apos;t have an account?{" "}
-            <Link href={`/signup?redirect=${encodeURIComponent(redirectPath)}`} className="text-black hover:underline font-bold">
+            <Link href={`/signup?redirect=${encodeURIComponent(safeRedirect)}`} className="text-black hover:underline font-bold">
               Sign up
             </Link>
           </div>
@@ -193,7 +195,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900"><Loader2 className="h-8 w-8 animate-spin text-black" /></div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900"><Loader2 className="h-8 w-8 animate-spin text-black dark:text-white" /></div>}>
       <LoginForm />
     </Suspense>
   );

@@ -72,6 +72,8 @@ export default function UpgradeDialog({ open, onOpenChange, feature, message }: 
           } catch (error) {
             toast.error("Verification error. Please contact support.");
             console.error(error);
+          } finally {
+            setLoading(false);
           }
         },
         modal: {

@@ -77,6 +77,15 @@ function parseTimetableText(text: string): TimetableClass[] {
     if (dayMatch) {
       const dayName = dayMatch[1];
       currentDay = dayMap[dayName] ?? -1;
+      // Don't continue - try to extract class info from the rest of the line
+      // Strip the day name to avoid re-detecting it or confusing the parser
+      const lineWithoutDay = line.replace(new RegExp(`\\b${dayMatch[0]}\\b`, 'i'), '').trim();
+      if (lineWithoutDay) {
+        const classData = extractClassInfo(lineWithoutDay, currentDay);
+        if (classData) {
+          classes.push(classData);
+        }
+      }
       continue;
     }
 

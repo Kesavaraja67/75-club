@@ -15,11 +15,25 @@ CREATE TABLE IF NOT EXISTS public.payment_orders (
 -- Enable RLS
 ALTER TABLE public.payment_orders ENABLE ROW LEVEL SECURITY;
 
--- RLS Policy
+-- RLS Policies
+DROP POLICY IF EXISTS "Users can view own orders" ON public.payment_orders;
 CREATE POLICY "Users can view own orders"
   ON public.payment_orders
   FOR SELECT
   USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own orders" ON public.payment_orders;
+CREATE POLICY "Users can insert own orders"
+  ON public.payment_orders
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own orders" ON public.payment_orders;
+CREATE POLICY "Users can update own orders"
+  ON public.payment_orders
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- Table 2: subscriptions (if not exists)
 CREATE TABLE IF NOT EXISTS public.subscriptions (
