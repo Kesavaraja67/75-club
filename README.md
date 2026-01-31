@@ -1,10 +1,10 @@
-# 📚 The Bunk Planner
+# 📚 75 Club
 
-**The Bunk Planner** is a smart attendance management application designed for students to track their classes, calculate safe bunks, and maintain their attendance above the critical 75% threshold.
+**75 Club** is a smart attendance management application designed for students to track their classes, calculate safe bunks, and maintain their attendance above the critical 75% threshold.
 
 Built with a **Neo-Brutalist** design aesthetic, it combines bold visuals with powerful tracking features.
 
-![The Bunk Planner](public/icon.png)
+![75 Club](public/app-logo.png)
 
 ## 🚀 Features
 

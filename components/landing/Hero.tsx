@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 export default function Hero() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -45,7 +46,7 @@ export default function Hero() {
           >
             {/* Badge - More Specific */}
             <div className="inline-flex items-center gap-2 px-3 py-1.5 lg:px-4 lg:py-2 rounded-2xl bg-white border-3 border-black font-display font-bold text-[10px] lg:text-sm neo-shadow">
-              <span className="text-sm lg:text-lg">🎯</span>
+              <Image src="/app-logo.png" alt="Logo" width={24} height={24} className="object-contain" />
               <span>For College Students Who Value Their Time</span>
             </div>
 

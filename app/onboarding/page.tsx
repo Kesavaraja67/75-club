@@ -34,7 +34,7 @@ export default function OnboardingPage() {
           <div>
             <div className="inline-flex items-center gap-2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full font-bold border-2 border-yellow-400 mb-6">
               <Sparkles className="h-4 w-4" />
-              <span>Welcome to The Bunk Planner</span>
+              <span>Welcome to 75 Club</span>
             </div>
             <h1 className="text-5xl font-display font-black text-black leading-tight mb-4">
               Hey, {name}! 👋

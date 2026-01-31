@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Star } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Image from "next/image";
 
 import UpgradeDialog from "@/components/subscription/UpgradeDialog"; // Import UpgradeDialog
 import { useRouter } from "next/navigation"; // Import useRouter
@@ -363,11 +364,11 @@ export default function LandingPage() {
       <footer className="py-12 border-t bg-muted/10">
         <div className="container mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <span className="text-2xl">📚</span>
-            <span className="font-display font-black text-xl">Bunk Planner</span>
+            <Image src="/app-logo.png" alt="75 Club Logo" width={32} height={32} className="object-contain" />
+            <span className="font-display font-black text-xl">75 Club</span>
           </div>
           <p className="text-muted-foreground text-sm">
-            © {new Date().getFullYear()} The Bunk Planner. Helping students stay above 75% since 2024.
+            © {new Date().getFullYear()} 75 Club. Helping students stay above 75% since 2024.
           </p>
         </div>
       </footer>

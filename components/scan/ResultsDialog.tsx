@@ -87,7 +87,7 @@ export default function ResultsDialog({ open, onOpenChange, results, onSaved }: 
       const newSubjects: ScannedSubject[] = [];
 
       data.forEach(scannedSub => {
-        const isDuplicate = existingSubjects?.some(existing => 
+        const isDuplicate = existingSubjects?.some((existing: { name: string; code: string | null }) => 
           existing.name.toLowerCase() === scannedSub.name.toLowerCase() ||
           (existing.code && scannedSub.code && existing.code === scannedSub.code)
         );

@@ -19,6 +19,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
 import { fetchSubscriptionStatus, SubscriptionStatus } from "@/lib/subscription";
+import Image from "next/image";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -59,8 +60,8 @@ export default function Sidebar() {
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold">
-            <BookOpen className="h-6 w-6 text-primary" />
-            <span className="">Bunk Planner</span>
+            <Image src="/app-logo.png" alt="75 Club Logo" width={24} height={24} className="object-contain" />
+            <span className="">75 Club</span>
             {subscription?.isProUser && (
               <span className="bg-yellow-400 text-black text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-black ml-2">
                 PRO

@@ -71,7 +71,7 @@ export default function HomePage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="text-2xl">📚</div>
-            <h1 className="text-2xl font-display font-black">The Bunk Planner</h1>
+            <h1 className="text-2xl font-display font-black">75 Club</h1>
           </div>
           {tier === 'pro' && (
             <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-4 py-2 rounded-full text-sm font-black border-2 border-black shadow-sm flex items-center gap-1">

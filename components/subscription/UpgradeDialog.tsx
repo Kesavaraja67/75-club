@@ -56,7 +56,7 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
         key: key,
         amount: amount * 100, // Convert to paise
         currency: currency,
-        name: "The Bunk Planner",
+        name: "75 Club",
         description: "Pro Plan - Semester Access",
         order_id: orderId,
         handler: async function (response: RazorpayResponse) {

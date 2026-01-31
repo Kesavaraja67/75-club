@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { LogOut, Menu, X } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { fetchSubscriptionStatus, SubscriptionStatus } from "@/lib/subscription";
+import Image from "next/image";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -30,7 +31,7 @@ export default function Navbar() {
     checkAuth();
 
     // 2. Fix shadowing: Rename destuctured variable
-    const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(async (_event: import("@supabase/supabase-js").AuthChangeEvent, session: import("@supabase/supabase-js").Session | null) => {
       setIsAuthenticated(!!session);
       if (session) {
         const status = await fetchSubscriptionStatus();
@@ -63,8 +64,8 @@ export default function Navbar() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl">📚</span>
-            <span className="font-display font-black text-xl">Bunk Planner</span>
+            <Image src="/app-logo.png" alt="75 Club Logo" width={32} height={32} className="object-contain" />
+            <span className="font-display font-black text-xl">75 Club</span>
             {subscription?.isProUser && (
               <span className="bg-yellow-400 text-black text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-black ml-2">
                 PRO

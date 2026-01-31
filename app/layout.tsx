@@ -16,12 +16,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Bunk Planner",
+  title: "75 Club",
   description: "Plan your bunks, stress-free. Track attendance and calculate safe skips.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/app-logo.png",
-    apple: "/app-logo.png",
+    icon: "/favicon.ico",
+    apple: "/icon-512.png",
   },
 };
 
