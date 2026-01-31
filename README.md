@@ -74,7 +74,7 @@
 </td>
 <td width="50%">
 
-#### 📸 AI-Powered Timetable Scan
+#### 📸 AI-Powered Scan
 
 - Upload college portal screenshots
 - **OCR Engine** (Tesseract.js) extracts raw data
