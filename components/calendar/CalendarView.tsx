@@ -48,8 +48,8 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
           return;
         }
 
-        const start = startOfMonth(currentMonth).toISOString();
-        const end = endOfMonth(currentMonth).toISOString();
+        const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+        const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
 
         const { data, error } = await supabase
             .from('calendar_events')
@@ -94,12 +94,14 @@ export default function CalendarView({ onDateSelect, selectedDate }: CalendarVie
 
   // Handle Event Creation
   const handleCreateEvent = async () => {
-      if (!newEvent.title) {
-        toast.error("Please enter an event title");
-        setIsSubmitting(false); // Reset state
-        return;
-      }
-      setIsSubmitting(true);
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    if (!newEvent.title) {
+      toast.error("Please enter an event title");
+      setIsSubmitting(false);
+      return;
+    }
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {

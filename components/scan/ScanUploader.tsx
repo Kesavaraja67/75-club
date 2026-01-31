@@ -33,6 +33,11 @@ export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
       return;
     }
 
+    // Revoke existing previews before creating new ones
+    previews.forEach(url => {
+      URL.revokeObjectURL(url);
+    });
+
     setFiles(selectedFiles);
     const newPreviews = selectedFiles.map(f => URL.createObjectURL(f));
     setPreviews(newPreviews);

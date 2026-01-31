@@ -216,7 +216,7 @@ export default function DashboardPage() {
                 <h3 className="font-display font-black text-lg text-black">
                   {subjects.length}/{!isFinite(subjectLimit) ? '∞' : subjectLimit} subjects
                 </h3>
-            {subjects.length >= subjectLimit && subjectLimit !== Infinity && (
+            {subjects.length >= subjectLimit && isFinite(subjectLimit) && (
               <span className="text-xs bg-yellow-400 text-black px-2 py-0.5 rounded-full font-bold">
                 LIMIT REACHED
               </span>

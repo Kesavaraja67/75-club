@@ -35,9 +35,16 @@ export default function ResultsDialog({ open, onOpenChange, results, onSaved }: 
 
   const handleUpdate = (index: number, field: keyof ScannedSubject, value: string | number) => {
     const newData = [...data];
+    const numericFields: (keyof ScannedSubject)[] = ['total_hours', 'hours_present'];
+    
+    // Convert to number if it's a numeric field
+    const finalValue = numericFields.includes(field) && typeof value === 'string' 
+      ? Number(value) || 0 
+      : value;
+
     newData[index] = {
       ...newData[index],
-      [field]: value
+      [field]: finalValue
     };
     setData(newData);
   };
