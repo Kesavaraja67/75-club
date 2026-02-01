@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createClient } from "@/lib/supabase/client";
+// import { createClient } from "@/lib/supabase/client"; // Removed, using Server Actions
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Subject } from "@/lib/types";
@@ -51,7 +51,7 @@ export default function ManualSubjectDialog({ open, onOpenChange, onSaved, editM
     }
   }, [editMode, subjectToEdit, open]);
 
-  const supabase = createClient();
+  // const supabase = createClient(); // Removed
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -73,40 +73,32 @@ export default function ManualSubjectDialog({ open, onOpenChange, onSaved, editM
         throw new Error("Present hours cannot exceed total classes");
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      // Server Actions import (dynamic to avoid build issues if file not ready)
+      const { addSubject, updateSubject } = await import("@/app/dashboard/actions");
 
       if (editMode && subjectToEdit) {
         // Update existing subject
-        const { error } = await supabase
-          .from('subjects')
-          .update({
+        const result = await updateSubject(subjectToEdit.id, {
             name: formData.name,
             code: formData.code,
             type: formData.type,
-            total_hours: total,
-            hours_present: present,
-          })
-          .eq('id', subjectToEdit.id)
-          .eq('user_id', user.id);
+            totalHours: total,
+            hoursPresent: present,
+        });
 
-        if (error) throw error;
+        if (!result.success) throw new Error(result.message);
         toast.success("Subject updated successfully");
       } else {
         // Insert new subject
-        const { error } = await supabase
-          .from('subjects')
-          .insert({
-            user_id: user.id,
+        const result = await addSubject({
             name: formData.name,
             code: formData.code,
             type: formData.type,
-            total_hours: total,
-            hours_present: present,
-            threshold: 75
-          });
+            totalHours: total,
+            hoursPresent: present,
+        });
 
-        if (error) throw error;
+        if (!result.success) throw new Error(result.message);
         toast.success("Subject added successfully");
       }
 

@@ -41,6 +41,12 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
     apple: "/icon-512.png",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "75 Club",
+    // startUpImage: [], // Optional: Add startup images if available later
+  },
 };
 
 export const viewport: Viewport = {
