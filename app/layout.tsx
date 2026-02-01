@@ -16,8 +16,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "75 Club",
-  description: "Plan your bunks, stress-free. Track attendance and calculate safe skips.",
+  title: "75 Club | AI Attendance Planner & Bunk Manager",
+  description: "Stop worrying about attendance. 75 Club helps you track classes, scan timetables with AI, and calculate exactly how many bunks you have left. Stay safe above 75%.",
+  keywords: ["75 club", "attendance tracker", "bunk planner", "college attendance", "bunk calculator", "75 percent attendance"],
+  authors: [{ name: "75 Club Team" }],
+  openGraph: {
+    title: "75 Club | Your AI Bunk Buddy",
+    description: "Track attendance and plan your bunks stress-free.",
+    url: "https://75-club.vercel.app",
+    siteName: "75 Club",
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "75 Club | AI Attendance Planner",
+    description: "Calculate safe bunks and track attendance effortlessly.",
+  },
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico",
