@@ -76,7 +76,7 @@ function SignupForm() {
         email: trimmedEmail,
         password,
         options: {
-          emailRedirectTo: `${location.origin}/api/auth/callback?redirect=${encodeURIComponent(safeRedirect)}`,
+          emailRedirectTo: `${location.origin}/api/auth/callback?next=${encodeURIComponent("/login?redirect=/dashboard")}`,
           data: {
             name: name.trim(),
           },

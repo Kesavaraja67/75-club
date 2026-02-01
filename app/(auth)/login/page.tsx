@@ -22,9 +22,9 @@ function LoginForm() {
   const supabase = useMemo(() => createClient(), []);
   
   // Get redirect path, ensuring it's relative to prevent Open Redirects
-  const rawRedirect = searchParams.get("redirect") || "/";
+  const rawRedirect = searchParams.get("redirect") || "/dashboard";
   const redirectPath = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
-  const safeRedirect = redirectPath === pathname ? "/" : redirectPath;
+  const safeRedirect = redirectPath === pathname ? "/dashboard" : redirectPath;
 
   // Redirect if already logged in
   useEffect(() => {
