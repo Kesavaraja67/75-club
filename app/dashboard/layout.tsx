@@ -1,11 +1,22 @@
+
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import MobileNav from "@/components/layout/MobileNav";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Server-side auth check - CRITICAL for protecting dashboard access
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login?redirect=/dashboard');
+  }
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40 md:flex-row">
       <Sidebar />

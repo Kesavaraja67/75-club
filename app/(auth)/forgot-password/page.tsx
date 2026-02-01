@@ -1,21 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowLeft, Mail } from "lucide-react";
-import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,20 +22,22 @@ export default function ForgotPasswordPage() {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${location.origin}/auth/callback?next=/dashboard/settings`,
+      const trimmedEmail = email.trim().toLowerCase();
+      
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: `${location.origin}/api/auth/callback?next=/reset-password`,
       });
 
-      if (error) {
-        setError(error.message);
+      if (resetError) {
+        setError(resetError.message);
+        setLoading(false);
       } else {
         setSuccess(true);
-        toast.success("Check your email for the reset link");
+        setLoading(false);
       }
     } catch (err) {
-      setError("An unexpected error occurred");
-      console.error(err);
-    } finally {
+      console.error("Reset password error:", err);
+      setError("An unexpected error occurred. Please try again.");
       setLoading(false);
     }
   };
@@ -46,22 +47,19 @@ export default function ForgotPasswordPage() {
       <div className="flex min-h-screen items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
         <Card className="w-full max-w-md border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-3xl">
           <CardHeader>
-            <CardTitle className="text-2xl font-black text-center">Check your email</CardTitle>
+            <CardTitle className="text-3xl font-display font-black text-center">Check your email</CardTitle>
             <CardDescription className="text-center font-medium text-gray-600">
               We&apos;ve sent a password reset link to {email}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex justify-center py-8">
-            <div className="h-24 w-24 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-5xl border-4 border-black">
-              <Mail size={48} />
-            </div>
+          <CardContent className="flex justify-center">
+             <div className="h-20 w-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-4xl border-2 border-black">
+               ✉️
+             </div>
           </CardContent>
           <CardFooter className="flex justify-center">
             <Link href="/login">
-              <Button variant="outline" className="border-2 border-black font-bold rounded-xl hover:bg-gray-100">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Login
-              </Button>
+              <Button variant="outline" className="border-2 border-black hover:bg-gray-100 font-bold rounded-xl">Back to Login</Button>
             </Link>
           </CardFooter>
         </Card>
@@ -73,7 +71,7 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
       <Card className="w-full max-w-md border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-3xl">
         <CardHeader>
-          <CardTitle className="text-2xl font-black text-center">Reset Password</CardTitle>
+          <CardTitle className="text-3xl font-black text-center">Reset Password</CardTitle>
           <CardDescription className="text-center font-medium text-gray-600">
             Enter your email to receive a reset link
           </CardDescription>
@@ -90,33 +88,40 @@ export default function ForgotPasswordPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                className="border-2 border-black rounded-xl"
+                className="border-2 border-black rounded-xl focus-visible:ring-offset-0 focus-visible:ring-2 focus-visible:ring-black"
               />
             </div>
             
             {error && (
-              <div className="p-3 text-sm text-red-500 bg-red-50 border-2 border-red-200 rounded-xl font-bold">
-                {error}
+              <div className="p-3 rounded-xl bg-red-50 border-2 border-red-200">
+                <p className="text-sm text-red-600 font-medium">{error}</p>
               </div>
             )}
-
+            
             <Button 
               type="submit" 
-              className="w-full font-bold text-lg rounded-xl border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-50 disabled:pointer-events-none" 
+              className="w-full font-bold text-lg rounded-xl border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all" 
               disabled={loading}
             >
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Send Reset Link
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Link href="/login" className="text-sm font-bold text-gray-600 hover:text-black hover:underline flex items-center">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+          <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-black">
             Back to Login
           </Link>
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900"><Loader2 className="h-8 w-8 animate-spin text-black dark:text-white" /></div>}>
+      <ForgotPasswordForm />
+    </Suspense>
   );
 }

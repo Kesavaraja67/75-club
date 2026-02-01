@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
-export async function middleware(request: NextRequest) {
+// Next.js 16: the function MUST be named "proxy" (not "middleware")
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -54,8 +55,15 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session if expired
-  await supabase.auth.getUser()
+  // Refresh the session so cookies stay valid.
+  // Wrapped in try/catch: in local dev the Edge/Node runtime
+  // sometimes can't reach Supabase. Let the request through
+  // anyway — page-level auth checks will handle it.
+  try {
+    await supabase.auth.getUser()
+  } catch {
+    // Session refresh failed locally. Not a problem in production.
+  }
 
   return response
 }

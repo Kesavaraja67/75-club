@@ -40,6 +40,8 @@ function SignupForm() {
         
         if (user) {
           // User is logged in - redirect immediately
+          // Wait for auth cookies to be written to disk.
+          await new Promise((resolve) => setTimeout(resolve, 150));
           router.replace(safeRedirect);
         } else {
           // User is not logged in - show form
@@ -74,7 +76,7 @@ function SignupForm() {
         email: trimmedEmail,
         password,
         options: {
-          emailRedirectTo: `${location.origin}/auth/callback?redirect=${encodeURIComponent(safeRedirect)}`,
+          emailRedirectTo: `${location.origin}/api/auth/callback?redirect=${encodeURIComponent(safeRedirect)}`,
           data: {
             name: name.trim(),
           },

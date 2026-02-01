@@ -87,8 +87,13 @@ function LoginForm() {
         // Successful login
         if (data.user) {
           // Force a refresh to update the session
-          router.push(safeRedirect);
-          router.refresh();
+          // Wait for auth cookies to be written to disk.
+          // Critical on mobile — cookie writes are async and slow.
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          // Use replace (not push) to avoid polluting browser history.
+          router.replace(safeRedirect);
+          // DO NOT call router.refresh() here.
+          // The proxy.ts session refresh runs on every request automatically.
         } else {
           setError("Login failed. Please try again.");
           setLoading(false);
