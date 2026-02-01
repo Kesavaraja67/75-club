@@ -18,40 +18,38 @@ function ResetPasswordForm() {
   const [error, setError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(true);
   
-  const router = useRouter();
+  // const router = useRouter(); // never used.
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
 
-  // Exchange code for session on mount
+  // Check session on mount
   useEffect(() => {
-    const exchangeCode = async () => {
-      const code = searchParams.get("code");
-      
-      if (code) {
-        try {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) {
-            setError("This link has expired or is invalid. Please request a new password reset.");
-          }
-        } catch (err) {
-          console.error("Exchange code error:", err);
-          setError("An error occurred verifying the link.");
-        } finally {
-          setVerifying(false);
+    const checkSession = async () => {
+      // If we have a code, we *could* exchange it, but the callback route usually handles it.
+      // If we landed here from callback, we have a cookie.
+      // We'll just verify a session exists.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Fallback: If no session, maybe we need to exchange code here?
+        // (Only happens if link points directly to page, not callback)
+        const code = searchParams.get("code");
+        if (code) {
+           const { error } = await supabase.auth.exchangeCodeForSession(code);
+           if (error) setError("Invalid or expired link.");
+        } else {
+           setError("User not authenticated. Please request a new reset link.");
         }
-      } else {
-        // If no code, check if we already have a session (e.g. from callback redirect)
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setError("Invalid reset link. Missing code or session.");
-        }
-        setVerifying(false);
       }
+      setVerifying(false);
     };
 
-    exchangeCode();
+    checkSession();
   }, [searchParams, supabase]);
 
+  // No need to client-side exchange if we rely on the server session established by callback
+  // But we allow it just in case the flow changes.
+  // Ideally, valid session check happens on the server or middleware.
+  
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -70,12 +68,12 @@ function ResetPasswordForm() {
     }
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password
-      });
+      // Import dynamically or use the imported action
+      const { updatePassword } = await import("../actions");
+      const result = await updatePassword(password);
 
-      if (updateError) {
-        setError(updateError.message);
+      if (!result.success) {
+        setError(result.message);
         setLoading(false);
       } else {
         setSuccess(true);
