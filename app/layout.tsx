@@ -33,6 +33,9 @@ export const metadata: Metadata = {
     title: "75 Club | AI Attendance Planner",
     description: "Calculate safe bunks and track attendance effortlessly.",
   },
+  verification: {
+    google: "GMs_syvzDzng1D5OGkMN63xwPi2ZDGYB7csa38yFK0U",
+  },
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico",
