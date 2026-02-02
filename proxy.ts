@@ -62,7 +62,10 @@ export async function proxy(request: NextRequest) {
   try {
     await supabase.auth.getUser()
   } catch {
-    // Session refresh failed locally. Not a problem in production.
+    // Session refresh failed (invalid token, etc.). 
+    // Clear the invalid session so the user is signed out cleanly.
+    await supabase.auth.signOut()
+    // console.error("Auth error in proxy:", error) // Optional: suppress logging
   }
 
   return response

@@ -14,6 +14,7 @@ import ManualSubjectDialog from "@/components/dashboard/ManualSubjectDialog";
 import { toast } from "sonner";
 import { fetchSubscriptionStatus, UPGRADE_MESSAGES, SubscriptionStatus } from "@/lib/subscription";
 import UpgradeDialog from "@/components/subscription/UpgradeDialog";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 export default function DashboardPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -88,6 +89,39 @@ export default function DashboardPage() {
     fetchSubjects();
   }, [fetchSubjects]);
 
+  // Real-time Sync
+  useEffect(() => {
+    let channel: RealtimeChannel;
+
+    const setupRealtime = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      channel = supabase
+        .channel('subjects-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'subjects',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            // Refetch subjects when any change occurs
+            fetchSubjects();
+          }
+        )
+        .subscribe();
+    };
+
+    setupRealtime();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [supabase, fetchSubjects]);
+
   const handleManualAdd = () => {
     // Check subject limit
     if (subjects.length >= subjectLimit) {
@@ -120,8 +154,31 @@ export default function DashboardPage() {
     setIsResultsOpen(true);
   };
 
-  const handleSaved = () => {
-    fetchSubjects();
+  const handleSaved = (newSubjectData?: Record<string, unknown>) => {
+    if (newSubjectData) {
+      // Map DB response to UI model
+      const mappedSubject: Subject = {
+        id: String(newSubjectData.id),
+        name: String(newSubjectData.name),
+        code: newSubjectData.code ? String(newSubjectData.code) : undefined,
+        type: String(newSubjectData.type) as import("@/lib/types").SubjectType,
+        totalHours: Number(newSubjectData.total_hours),
+        hoursPresent: Number(newSubjectData.hours_present),
+        threshold: Number(newSubjectData.threshold)
+      };
+
+      setSubjects(prev => {
+        if (editMode && subjectToEdit) {
+           return prev.map(s => s.id === mappedSubject.id ? mappedSubject : s);
+        } else {
+           return [...prev, mappedSubject];
+        }
+      });
+    } else {
+      // Fallback if no data returned (should shouldn't happen with new actions)
+      fetchSubjects();
+    }
+    
     setEditMode(false);
     setSubjectToEdit(null);
   };

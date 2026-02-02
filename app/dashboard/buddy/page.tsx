@@ -46,7 +46,7 @@ export default function AIBuddyPage() {
         return;
       }
 
-      const { isProUser: isPro } = await fetchSubscriptionStatus(user.id);
+      const { isProUser: isPro } = await fetchSubscriptionStatus(user.id, supabase);
       setIsProUser(isPro);
       setCheckingAuth(false);
 

@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { Toaster } from "@/components/ui/sonner";
 import Navbar from "@/components/shared/Navbar";
+import InstallPrompt from "@/components/pwa/InstallPrompt";
+import IOSInstallPrompt from "@/components/pwa/IOSInstallPrompt";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,7 +41,10 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico",
-    apple: "/icon-512.png",
+    apple: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
   },
   appleWebApp: {
     capable: true,
@@ -68,6 +73,10 @@ export default function RootLayout({
         <Navbar />
         {children}
         <Toaster />
+        
+        {/* PWA Install Prompts */}
+        <InstallPrompt />
+        <IOSInstallPrompt />
         
         {/* Razorpay Script */}
         <Script

@@ -46,7 +46,24 @@ export async function POST(req: Request) {
     }
 
     // Parse the OCR text to extract timetable slots
-    const classes = parseTimetableText(text);
+    let classes = parseTimetableText(text);
+
+    // If standard parsing failed, try grid-based parsing
+    if (classes.length === 0) {
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Standard parsing failed, attempting grid parsing...");
+      }
+      classes = parseGridTimetable(text);
+    }
+
+    // If grid parsing also failed (no headers found), try generic row parsing
+    // This handles cases where time headers are unreadable but "Monday | Math | Physics" structure exists
+    if (classes.length === 0) {
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Grid parsing failed, attempting generic row fallback...");
+      }
+      classes = parseGenericRows(text);
+    }
 
     if (process.env.NODE_ENV !== "production") {
       console.log("=== EXTRACTED CLASSES ===");
@@ -275,4 +292,210 @@ function extractClassInfo(line: string, dayOfWeek: number): TimetableClass | nul
   }
 
   return null;
+}
+
+/**
+ * Strategy: Grid/Table Parsing
+ * Handles standard grid timetables where the first row has times and subsequent rows have days.
+ */
+function parseGridTimetable(text: string): TimetableClass[] {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const classes: TimetableClass[] = [];
+
+  // 1. Detect Time Headers
+  // Look for a line containing multiple time ranges (e.g., "09.00-09.50 09.55-10.45")
+  const timeSlots: { start: string, end: string, originalIndex: number }[] = [];
+  let headerLineIndex = -1;
+
+  for (let i = 0; i < Math.min(lines.length, 5); i++) {
+    const line = lines[i];
+    // Regex for various time formats found in Indian colleges:
+    // 1. "09.00-09.50" (Standard)
+    // 2. "9 am - 10 am" (No minutes, text suffix)
+    // 3. "8.00 AM to 8.55 AM" ('to' separator)
+    // 4. "10:00-10:40 AM" (Colon)
+    const timeRegex = /(\d{1,2})(?:[:.](\d{2}))?\s*(?:[aApP][mM])?\s*(?:-|–|to)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(?:[aApP][mM])?/g;
+    
+    // We look for at least 3 occurrences to be sure it's a header
+    const timeMatches = [...line.matchAll(timeRegex)];
+    
+    if (timeMatches.length >= 3) {
+      headerLineIndex = i;
+      timeMatches.forEach((match, index) => {
+        // Extract start time
+        const startHour = parseInt(match[1]);
+        const startMin = match[2] || "00";
+        
+        // Extract end time
+        const endHour = parseInt(match[3]);
+        const endMin = match[4] || "00";
+
+        // Simple AM/PM logic inference if needed (basic normalization)
+        // If 9-10, assume AM. If 1-2, assume PM.
+        // For now, return as-is digits formatted, logic below cleans it up.
+        
+        timeSlots.push({
+          start: `${String(startHour).padStart(2, '0')}:${startMin}`,
+          end: `${String(endHour).padStart(2, '0')}:${endMin}`,
+          originalIndex: index
+        });
+      });
+      break;
+    }
+  }
+
+  if (timeSlots.length === 0) return [];
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("Detected Grid Header with slots:", timeSlots.length);
+  }
+
+  const dayMap: { [key: string]: number } = {
+    'mon': 1, 'monday': 1,
+    'tue': 2, 'tuesday': 2,
+    'wed': 3, 'wednesday': 3,
+    'thu': 4, 'thursday': 4,
+    'fri': 5, 'friday': 5,
+    'sat': 6, 'saturday': 6,
+    'sun': 0, 'sunday': 0
+  };
+
+  // 2. Parse Rows
+  for (let i = headerLineIndex + 1; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Detect Day
+    const dayMatch = line.toLowerCase().match(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\b/);
+    if (!dayMatch) continue;
+    
+    const dayName = dayMatch[1].substring(0, 3); // normalized key
+    const dayOfWeek = dayMap[dayName];
+    if (dayOfWeek === undefined) continue;
+
+    // Split line by pipe "|" or mostly spaces if pipe is missing, but pipe is common in OCR tables
+    // The user's OCR sample showed "09.00 11.45 | 12.40..." and "meron | 05..."
+    
+    // Naive column extraction: split by common delimiters
+    // WARNING: OCR often loses vertical bars. We might rely on token position if we had bounding boxes, 
+    // but with raw text, we try to split by "|" or roughly equal chunks if possible.
+    // Given the noise, let's try splitting by "|" first.
+    const columns = line.split(/[|\[\]]+/).map(c => c.trim()).filter(c => c.length > 0);
+    
+    // Remove the day name from the first column if present
+    if (columns.length > 0 && columns[0].toLowerCase().includes(dayName)) {
+      columns.shift();
+    }
+
+    // Map content to time slots
+    // If we have N time slots and M columns, mapping is fuzzy.
+    // Assuming 1-to-1 mapping if counts match roughly.
+    
+    const maxCols = Math.min(columns.length, timeSlots.length);
+    
+    for (let c = 0; c < maxCols; c++) {
+      const content = columns[c];
+      // Skip empty or noise
+      if (!content || content.length < 2 || /^\W+$/.test(content)) continue;
+      
+      const slot = timeSlots[c];
+      
+      // Clean content
+      const subjectName = content.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+      
+      if (subjectName.length > 1 && !/^\d+$/.test(subjectName)) {
+         classes.push({
+           day_of_week: dayOfWeek,
+           start_time: slot.start,
+           end_time: slot.end,
+           subject_name: subjectName,
+           subject_code: '', // Grid usually implies Subject Name
+           room_number: null
+         });
+      }
+    }
+  }
+
+  return classes;
+}
+
+/**
+ * Strategy: Generic Row Parsing (Fallback)
+ * Ignores headers, just looks for "DayName ... ... ..." rows.
+ * Assigns synthetic hourly slots (Period 1 = 09:00, Period 2 = 10:00, etc.)
+ */
+function parseGenericRows(text: string): TimetableClass[] {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const classes: TimetableClass[] = [];
+
+  const dayMap: { [key: string]: number } = {
+    'mon': 1, 'monday': 1,
+    'tue': 2, 'tuesday': 2,
+    'wed': 3, 'wednesday': 3,
+    'thu': 4, 'thursday': 4,
+    'fri': 5, 'friday': 5,
+    'sat': 6, 'saturday': 6,
+    'sun': 0, 'sunday': 0
+  };
+
+  for (const line of lines) {
+    // Detect Day at start of line
+    const dayMatch = line.toLowerCase().match(/^[^a-z0-9]*\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\b/i);
+    if (!dayMatch) continue;
+
+    const dayName = dayMatch[1].substring(0, 3).toLowerCase();
+    const dayOfWeek = dayMap[dayName];
+    if (dayOfWeek === undefined) continue;
+
+    // Remove day name
+    // Use substring safely
+    const matchIndex = line.toLowerCase().indexOf(dayName);
+    const cleanLine = line.substring(matchIndex + dayName.length).trim();
+    
+    // Split by delimiters that suggest columns: 
+    // - Pipes (|)
+    // - Multiple spaces (  )
+    // - Tab chars
+    let rawCols = cleanLine.split(/\||\t|\s{2,}/).map(c => c.trim()).filter(c => c.length > 0);
+    
+    // Fallback: If we only got 1 chunk, maybe it's just space-separated (bad OCR)
+    // e.g. "m A eo] C219" -> "m", "A", "eo]", "C219"
+    if (rawCols.length <= 1 && cleanLine.includes(' ')) {
+      const spaceSplit = cleanLine.split(/\s+/).filter(c => c.trim().length > 0);
+      
+      // Heuristic: If we have multiple space-separated chunks and they look "code-like" (short), accept them
+      // Heuristic: If we have multiple space-separated chunks and they look "code-like" (short), accept them
+      // OR if we simply have enough chunks to look like a schedule row (> 3)
+      // const meaningfulChunks = spaceSplit.filter(c => c.length > 1 || /^[A-Z]$/.test(c));
+      
+      if (spaceSplit.length >= 2) {
+        rawCols = spaceSplit;
+      }
+    }
+    
+    // Assign 1-hour slots starting from 09:00
+    // This is an assumption, but better than extracting nothing
+    rawCols.forEach((subjectName, index) => {
+       // Filter noise
+       if (subjectName.length < 1 || /^\W+$/.test(subjectName)) return;
+       // Skip simple numbers often found in OCR noise (like 1, 2, 3 from period row)
+       if (/^\d{1,2}$/.test(subjectName)) return;
+       
+       const startHour = 9 + index;
+       const endHour = startHour + 1;
+       
+       const startTime = `${String(startHour).padStart(2, '0')}:00`;
+       const endTime = `${String(endHour).padStart(2, '0')}:00`;
+
+       classes.push({
+         day_of_week: dayOfWeek,
+         start_time: startTime,
+         end_time: endTime,
+         subject_name: subjectName,
+         subject_code: '', // Inferred
+         room_number: null
+       });
+    });
+  }
+  
+  return classes;
 }

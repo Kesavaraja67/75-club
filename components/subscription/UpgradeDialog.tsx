@@ -35,9 +35,36 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // Dynamic script loader helper
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => {
+        resolve(true);
+      };
+      script.onerror = () => {
+        resolve(false);
+      };
+      document.body.appendChild(script);
+    });
+  };
+
   const handleUpgrade = async () => {
     try {
       setLoading(true);
+
+      // 0. Ensure Razorpay SDK is loaded
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        toast.error("Razorpay SDK failed to load. Check your internet connection.");
+        setLoading(false);
+        return;
+      }
 
       // 1. Create order on backend
       const response = await fetch("/api/payment/create-order", {
@@ -47,7 +74,8 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create order");
+        const errorData = await response.json(); // Try to get error message
+        throw new Error(errorData.error || "Failed to create order");
       }
 
       const { orderId, amountInRupees, currency, key } = await response.json();
@@ -104,17 +132,12 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
         },
       };
       
-      if (!window.Razorpay) {
-        toast.error("Razorpay SDK failed to load. Please refresh and try again.");
-        setLoading(false);
-        return;
-      }
-
       const razorpay = new (window.Razorpay as RazorpayConstructor)(options);
       razorpay.open();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Upgrade error:", error);
-      toast.error("Failed to initiate payment. Please try again.");
+      const message = error instanceof Error ? error.message : "Failed to initiate payment";
+      toast.error(message);
       setLoading(false);
     }
   };

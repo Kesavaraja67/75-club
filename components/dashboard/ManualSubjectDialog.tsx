@@ -14,7 +14,7 @@ import { Subject } from "@/lib/types";
 interface ManualSubjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved: () => void;
+  onSaved: (subject?: Record<string, unknown>) => void;
   editMode?: boolean;
   subjectToEdit?: Subject | null;
 }
@@ -66,8 +66,12 @@ export default function ManualSubjectDialog({ open, onOpenChange, onSaved, editM
         throw new Error("Please fill in all required fields");
       }
 
-      const total = Number(formData.totalHours);
-      const present = Number(formData.hoursPresent);
+      const total = parseInt(formData.totalHours, 10);
+      const present = parseInt(formData.hoursPresent, 10);
+
+      if (isNaN(total) || isNaN(present)) {
+        throw new Error("Hours must be valid numbers");
+      }
 
       if (present > total) {
         throw new Error("Present hours cannot exceed total classes");
@@ -88,6 +92,7 @@ export default function ManualSubjectDialog({ open, onOpenChange, onSaved, editM
 
         if (!result.success) throw new Error(result.message);
         toast.success("Subject updated successfully");
+        onSaved();
       } else {
         // Insert new subject
         const result = await addSubject({
@@ -100,6 +105,7 @@ export default function ManualSubjectDialog({ open, onOpenChange, onSaved, editM
 
         if (!result.success) throw new Error(result.message);
         toast.success("Subject added successfully");
+        onSaved(result.data as Record<string, unknown>);
       }
 
       setFormData({
@@ -109,7 +115,7 @@ export default function ManualSubjectDialog({ open, onOpenChange, onSaved, editM
         totalHours: "",
         hoursPresent: "",
       });
-      onSaved();
+      // onSaved call moved up inside the success blocks
       onOpenChange(false);
 
     } catch (error: unknown) {

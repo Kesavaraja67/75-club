@@ -11,7 +11,16 @@ export default async function DashboardLayout({
 }) {
   // Server-side auth check - CRITICAL for protecting dashboard access
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch (error) {
+    // Token might be invalid or expired
+    console.error("Dashboard auth check failed:", error);
+    // User remains null, will trigger redirect below
+  }
   
   if (!user) {
     redirect('/login?redirect=/dashboard');
