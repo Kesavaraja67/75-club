@@ -14,7 +14,8 @@ export default async function DashboardLayout({
   
   let user = null;
   try {
-    const { data } = await supabase.auth.getUser();
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
     user = data.user;
   } catch (error) {
     // Token might be invalid or expired

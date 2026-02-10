@@ -56,13 +56,19 @@ export default function DashboardPage() {
 
   const fetchSubjects = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      setLoading(true);
+      // Use getSession for faster client-side check since Layout already verified auth
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        // If no session, we shouldn't be here, but handle it gracefully
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('subjects')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', session.user.id);
 
       if (error) throw error;
       

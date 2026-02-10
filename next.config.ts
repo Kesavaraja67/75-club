@@ -17,6 +17,11 @@ const withPWA = withPWAInit({
         handler: 'NetworkOnly',
       },
       {
+        // Don't cache Dashboard pages (FORCE server auth check)
+        urlPattern: /\/dashboard.*/,
+        handler: 'NetworkOnly',
+      },
+      {
         // Don't cache internal API calls
         urlPattern: /\/api\/.*$/,
         handler: 'NetworkOnly',

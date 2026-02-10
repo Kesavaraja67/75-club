@@ -16,14 +16,12 @@ import {
   Sparkles
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
 import { fetchSubscriptionStatus, SubscriptionStatus } from "@/lib/subscription";
 import Image from "next/image";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
 
@@ -41,7 +39,8 @@ export default function Sidebar() {
       console.error("Logout failed:", error.message);
       // Fallback to login anyway
     }
-    router.push("/login");
+    // Force hard reload to clear any client-side state/cache
+    window.location.href = "/login";
   };
 
   const links = [

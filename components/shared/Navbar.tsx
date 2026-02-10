@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut, Menu, X } from "lucide-react";
@@ -11,7 +11,6 @@ import Image from "next/image";
 
 export default function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
@@ -52,8 +51,8 @@ export default function Navbar() {
       console.error("Logout failed:", error);
       return; // Stop if sign out failed
     }
-    router.push("/");
-    router.refresh();
+    // Force hard reload to clear any client-side state/cache
+    window.location.href = "/";
   };
 
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup");

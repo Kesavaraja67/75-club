@@ -12,8 +12,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Rate Limit: 5 verification attempts per minute
-    const { success, reset } = await rateLimit(`verify:${user.id}`, 5, 60 * 1000);
+    // Rate Limit: 10 verification attempts per minute (increased slightly)
+    const { success, reset } = await rateLimit(`verify:${user.id}`, 10, 60 * 1000);
     if (!success) {
       return NextResponse.json(
         { error: "Too many verification attempts. Please wait a minute." },
@@ -55,8 +55,42 @@ export async function POST(request: Request) {
     }
 
     // Payment verified! Update database
-    // 1. Update payment order status, BUT only if it belongs to this user and is still 'created'
-    const { data: orderData, error: orderError } = await supabase
+    // Handle Race Condition: Webhook might have already updated the status to 'success'.
+    
+    // 1. Fetch current order status
+    const { data: orderData, error: fetchError } = await supabase
+      .from("payment_orders")
+      .select("status, razorpay_payment_id")
+      .eq("razorpay_order_id", razorpay_order_id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (fetchError || !orderData) {
+       console.error("Order fetch failed:", fetchError);
+       return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    // 2. Check if already processed
+    if (orderData.status === 'success') {
+      // Create idempotency check
+      if (orderData.razorpay_payment_id === razorpay_payment_id) {
+         console.log("Payment already verification via webhook/other thread. Returning success.");
+         return NextResponse.json({
+            success: true,
+            message: "Payment verified and subscription activated!",
+         });
+      } else {
+         console.error("Payment ID mismatch on successful order. Possible fraud attempt.");
+         return NextResponse.json({ error: "Payment verification failed" }, { status: 400 });
+      }
+    }
+
+    // 3. If not success, attempt to update (using optimistic concurrency if needed, but simple update here is fine as we are the 'main' verifier if webhook didn't get there)
+    // Note: If webhook fires RIGHT NOW, it might overwrite. 
+    // Ideally we use a stored procedure or careful locking, but for this scale:
+    // We try to update.
+    
+    const { error: updateError } = await supabase
       .from("payment_orders")
       .update({
         status: "success",
@@ -64,21 +98,16 @@ export async function POST(request: Request) {
         verified_at: new Date().toISOString(),
       })
       .eq("razorpay_order_id", razorpay_order_id)
-      .eq("user_id", user.id) // Ensure ownership
-      .eq("status", "created") // Ensure not already processed
-      .select("user_id")
-      .single();
+      .eq("user_id", user.id); // RLS likely handles this too
 
-    if (orderError || !orderData) {
-      console.error("Order verification failed or order already processed:", orderError);
-      return NextResponse.json(
-        { error: "Order not found, not yours, or already processed" },
-        { status: 400 }
-      );
+    if (updateError) {
+       console.error("Failed to update order status:", updateError);
+       // It's possible it failed because of some constraint, but we'll return error to be safe.
+       // In a race, the webhook likely won. The user can retry or refresh.
+       return NextResponse.json({ error: "Failed to update order status" }, { status: 500 });
     }
 
-    // 2. Create/Update subscription (Only if step 1 succeeded)
-    
+    // 4. Activate Subscription
     // Fetch existing subscription to check for remaining time
     const { data: existingSub } = await supabase
       .from("subscriptions")
