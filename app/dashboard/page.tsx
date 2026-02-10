@@ -19,6 +19,7 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 export default function DashboardPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isTimeout, setIsTimeout] = useState(false);
   
   // Subscription Status
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
@@ -57,35 +58,54 @@ export default function DashboardPage() {
   const fetchSubjects = useCallback(async () => {
     try {
       setLoading(true);
-      // Use getSession for faster client-side check since Layout already verified auth
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        // If no session, we shouldn't be here, but handle it gracefully
-        setLoading(false);
-        return;
+      setIsTimeout(false);
+
+      // Create a timeout promise that rejects after 10 seconds
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("TIMEOUT")), 10000);
+      });
+
+      // Wrap the actual fetch logic
+      const fetchDataPromise = async () => {
+        // Use getSession for faster client-side check since Layout already verified auth
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          return null;
+        }
+
+        const { data, error } = await supabase
+          .from('subjects')
+          .select('*')
+          .eq('user_id', session.user.id);
+
+        if (error) throw error;
+        
+        return (data || []).map((sub: { id: string; name: string; code?: string; type: string; total_hours: number; hours_present: number; threshold: number }) => ({
+          id: sub.id,
+          name: sub.name,
+          code: sub.code,
+          type: sub.type as import("@/lib/types").SubjectType, 
+          totalHours: sub.total_hours,
+          hoursPresent: sub.hours_present,
+          threshold: sub.threshold
+        }));
+      };
+
+      // Race the fetch against the timeout
+      const result = await Promise.race([fetchDataPromise(), timeoutPromise]) as Subject[] | null;
+
+      if (result) {
+        setSubjects(result);
       }
-
-      const { data, error } = await supabase
-        .from('subjects')
-        .select('*')
-        .eq('user_id', session.user.id);
-
-      if (error) throw error;
-      
-      const mappedSubjects: Subject[] = (data || []).map((sub: { id: string; name: string; code?: string; type: string; total_hours: number; hours_present: number; threshold: number }) => ({
-        id: sub.id,
-        name: sub.name,
-        code: sub.code,
-        type: sub.type as import("@/lib/types").SubjectType, 
-        totalHours: sub.total_hours,
-        hoursPresent: sub.hours_present,
-        threshold: sub.threshold
-      }));
-
-      setSubjects(mappedSubjects);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching subjects:", error);
-      toast.error("Failed to load dashboard data");
+      
+      if (error instanceof Error && error.message === "TIMEOUT") {
+        setIsTimeout(true);
+        toast.error("Connection timed out. Please try again.");
+      } else {
+        toast.error("Failed to load dashboard data");
+      }
     } finally {
       setLoading(false);
     }
@@ -305,8 +325,20 @@ export default function DashboardPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground animate-pulse">Loading your dashboard...</p>
+        </div>
+      ) : isTimeout ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+          <div className="text-4xl">⚠️</div>
+          <h2 className="text-xl font-bold text-black">Connection Request Timed Out</h2>
+          <p className="text-gray-600 max-w-sm">
+            It&apos;s taking longer than expected to load your subjects. This might be due to a slow connection.
+          </p>
+          <Button onClick={fetchSubjects} size="lg">
+            Retry Loading
+          </Button>
         </div>
       ) : subjects.length === 0 ? (
         <div className="text-center py-20 space-y-4">
