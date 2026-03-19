@@ -15,8 +15,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 export default function StatsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -133,11 +131,14 @@ export default function StatsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (!isProUser) {
       setIsUpgradeDialogOpen(true);
       return;
     }
+
+    const { default: jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
 
     const doc = new jsPDF();
 
