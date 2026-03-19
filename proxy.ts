@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { supabaseFetchWithTimeout } from '@/lib/fetch-with-timeout'
 
 // Next.js 16: the function MUST be named "proxy" (not "middleware")
 export async function proxy(request: NextRequest) {
@@ -13,6 +14,9 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        fetch: supabaseFetchWithTimeout,
+      },
       cookies: {
         get(name: string) {
           return request.cookies.get(name)?.value

@@ -8,13 +8,25 @@ import AttendanceCard from "@/components/attendance/AttendanceCard";
 import { Subject } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import ScanUploader from "@/components/scan/ScanUploader";
-import ResultsDialog, { ScannedSubject } from "@/components/scan/ResultsDialog";
-import ManualSubjectDialog from "@/components/dashboard/ManualSubjectDialog";
 import { toast } from "sonner";
 import { fetchSubscriptionStatus, UPGRADE_MESSAGES, SubscriptionStatus } from "@/lib/subscription";
 import UpgradeDialog from "@/components/subscription/UpgradeDialog";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import dynamic from "next/dynamic";
+import type { ScannedSubject } from "@/components/scan/ResultsDialog";
+
+const ScanUploader = dynamic(() => import("@/components/scan/ScanUploader"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center p-12">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <p className="text-sm mt-4 text-muted-foreground animate-pulse">Loading AI Scanner...</p>
+    </div>
+  ),
+});
+
+const ResultsDialog = dynamic(() => import("@/components/scan/ResultsDialog"), { ssr: false });
+const ManualSubjectDialog = dynamic(() => import("@/components/dashboard/ManualSubjectDialog"), { ssr: false });
 
 export default function DashboardPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);

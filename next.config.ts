@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  turbopack: {},
+  serverExternalPackages: ["jspdf", "jspdf-autotable", "fflate"],
   async headers() {
     return [
       // ── Service Worker & Manifest: always revalidate after deploy ─────────

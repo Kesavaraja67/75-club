@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ScannedSubject } from "./ResultsDialog";
 import Image from "next/image";
 import Tesseract from "tesseract.js";
+import { SectionErrorBoundary } from "@/components/dashboard/SectionErrorBoundary";
 
 interface ScanUploaderProps {
   onScanComplete: (data: ScannedSubject[]) => void;
@@ -76,6 +77,17 @@ export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
 
   const handleUpload = async () => {
     if (files.length === 0) return;
+
+    // Prevent Out-Of-Memory crashes on budget Android devices
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const memory = (performance as any).memory;
+    if (memory && memory.jsHeapSizeLimit && memory.jsHeapSizeLimit < 500 * 1024 * 1024) {
+      toast.error("Low Device Memory", {
+        description: "Your device may crash processing images. Please input subjects manually to be safe.",
+        duration: 8000,
+      });
+      return;
+    }
 
     setLoading(true);
     const allSubjects: ScannedSubject[] = [];
@@ -192,8 +204,9 @@ export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Upload Area */}
+    <SectionErrorBoundary sectionName="AI Scanner">
+      <div className="space-y-6">
+        {/* Upload Area */}
       {files.length === 0 ? (
         <Card
           className="border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 transition-colors cursor-pointer bg-muted/5"
@@ -337,6 +350,7 @@ export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
           </div>
         </>
       )}
-    </div>
+      </div>
+    </SectionErrorBoundary>
   );
 }

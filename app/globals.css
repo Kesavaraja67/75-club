@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -84,54 +83,95 @@
 }
 
 @keyframes blob {
-  0% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-  100% { transform: translate(0px, 0px) scale(1); }
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
 }
 
 @keyframes bounce-slow {
-  0%, 100% { transform: translateY(0) rotate(12deg); }
-  50% { transform: translateY(-10px) rotate(12deg); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(12deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(12deg);
+  }
 }
 
 /* Custom utilities for animation delays */
-.animation-delay-2000 { animation-delay: 2s; }
-.animation-delay-4000 { animation-delay: 4s; }
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
 
 .animate-bounce-slow {
   animation: bounce-slow 3s ease-in-out infinite;
 }
 
 /* Enhanced Neo-Shadow Variations */
-.neo-shadow-sm { box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 1); }
-.neo-shadow { box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1); }
-.neo-shadow-lg { box-shadow: 8px 8px 0px 0px rgba(0, 0, 0, 1); }
-.neo-shadow-xl { box-shadow: 12px 12px 0px 0px rgba(0, 0, 0, 1); }
+.neo-shadow-sm {
+  box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 1);
+}
+.neo-shadow {
+  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+}
+.neo-shadow-lg {
+  box-shadow: 8px 8px 0px 0px rgba(0, 0, 0, 1);
+}
+.neo-shadow-xl {
+  box-shadow: 12px 12px 0px 0px rgba(0, 0, 0, 1);
+}
 
 /* Card Bounce Effect */
-.card-bounce { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-.card-bounce:hover { transform: translateY(-4px); box-shadow: 12px 12px 0px 0px rgba(0, 0, 0, 1); }
+.card-bounce {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.card-bounce:hover {
+  transform: translateY(-4px);
+  box-shadow: 12px 12px 0px 0px rgba(0, 0, 0, 1);
+}
 
 /* Border Width Utilities */
-.border-3 { border-width: 3px; }
+.border-3 {
+  border-width: 3px;
+}
 
 /* Gradient Text Effect */
 .gradient-text {
-  background: linear-gradient(135deg, #FF6B35 0%, #4ECDC4 100%);
+  background: linear-gradient(135deg, #ff6b35 0%, #4ecdc4 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 /* Smooth Scroll Behavior */
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+}
 
 /* Focus Visible for Accessibility */
-*:focus-visible { outline: 3px solid #FF6B35; outline-offset: 2px; }
+*:focus-visible {
+  outline: 3px solid #ff6b35;
+  outline-offset: 2px;
+}
 
 /* Button Hover States Enhancement */
-button:active { transform: translateY(2px); }
+button:active {
+  transform: translateY(2px);
+}
 
 .dark {
   --background: oklch(0.145 0 0);
@@ -173,5 +213,17 @@ button:active { transform: translateY(2px); }
   }
   body {
     @apply bg-background text-foreground;
+    padding-bottom: env(safe-area-inset-bottom);
+    min-height: 100dvh;
+  }
+}
+
+/* Mobile Touch Device Fixes */
+@media (hover: none) {
+  * {
+    cursor: pointer;
+  }
+  .hover-only {
+    display: none;
   }
 }

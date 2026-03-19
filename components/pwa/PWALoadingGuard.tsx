@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import type { AuthChangeEvent } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { useAndroidBackButtonLock } from "@/hooks/useAndroidBackButtonLock";
 
 /**
  * PWALoadingGuard
@@ -31,6 +33,9 @@ export default function PWALoadingGuard({
 }: {
   children: React.ReactNode;
 }) {
+  useNetworkStatus(); // Initialize global network monitoring
+  useAndroidBackButtonLock(); // Initialize global hardware back button lock
+  
   // Initialize ready = true for normal browser tabs (no splash needed)
   // Initialize ready = false only in PWA standalone mode
   const [ready, setReady] = useState<boolean>(() => !isPWAStandalone());

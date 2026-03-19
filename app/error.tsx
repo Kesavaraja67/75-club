@@ -90,6 +90,31 @@ export default function Error({
         >
           Reload page
         </button>
+        <button
+          onClick={async () => {
+            if ("serviceWorker" in navigator) {
+              const regs = await navigator.serviceWorker.getRegistrations();
+              for (const r of regs) await r.unregister();
+            }
+            if ("caches" in window) {
+              const keys = await caches.keys();
+              for (const k of keys) await caches.delete(k);
+            }
+            window.location.reload();
+          }}
+          style={{
+            background: "#dc2626", // Red for destructive/hard reset
+            color: "#fff",
+            border: "none",
+            borderRadius: 10,
+            padding: "12px 24px",
+            fontSize: 15,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          Clear cache & retry
+        </button>
       </div>
     </div>
   );
