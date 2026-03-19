@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { SubscriptionStatus } from "@/lib/subscription";
 
 /**
@@ -7,28 +7,41 @@ import { SubscriptionStatus } from "@/lib/subscription";
  * Use this for webhooks and verification routes where RLS might be restrictive.
  */
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!SUPABASE_SERVICE_ROLE) {
-  throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY for server-side subscription management");
-}
+let serviceClientInstance: SupabaseClient | null = null;
 
 /**
- * Service client that bypasses RLS for administrative updates.
+ * Lazy initializer for the Supabase Service Client.
+ * This prevents build-time failures if the SERVICE_ROLE_KEY is missing during module evaluation.
  */
-const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
+function getServiceClient(): SupabaseClient {
+  if (serviceClientInstance) return serviceClientInstance;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      "Missing critical Supabase configuration (NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY). " +
+      "This is required for server-side subscription management."
+    );
   }
-});
+
+  serviceClientInstance = createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+
+  return serviceClientInstance;
+}
 
 /**
  * Get subscription status for any user (server-side only)
  */
 export async function getServerSubscriptionStatus(userId: string): Promise<SubscriptionStatus> {
-  const { data, error } = await serviceClient
+  const client = getServiceClient();
+  const { data, error } = await client
     .from('subscriptions')
     .select('plan_type, status, current_period_end')
     .eq('user_id', userId)
@@ -86,8 +99,10 @@ export async function activateProSubscription(
   paymentId: string,
   method: 'verify' | 'webhook' | 'manual' = 'verify'
 ) {
+  const client = getServiceClient();
+
   // 1. Calculate new end date (180 days from now or from existing end date)
-  const { data: existing } = await serviceClient
+  const { data: existing } = await client
     .from('subscriptions')
     .select('current_period_end')
     .eq('user_id', userId)
@@ -102,7 +117,7 @@ export async function activateProSubscription(
   newEndDate.setDate(newEndDate.getDate() + 180);
 
   // 2. Performance atomic upsert
-  const { error } = await serviceClient
+  const { error } = await client
     .from('subscriptions')
     .upsert({
       user_id: userId,

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { razorpay, PAYMENT_CONFIG, rupeesToPaise } from "@/lib/razorpay";
+import { getRazorpay, PAYMENT_CONFIG, rupeesToPaise } from "@/lib/razorpay";
 import { rateLimit } from "@/lib/rate-limit";
 import { getServerSubscriptionStatus } from "@/lib/subscription-server";
 
@@ -24,7 +24,6 @@ export async function POST() {
     }
 
     // 3. Rate Limit: 5 order creations per hour (prevent spamming)
-    // Using 5 per hour as requested for production hardening
     const { success, reset } = await rateLimit(`order_hardened:${user.id}`, 5, 60 * 60 * 1000);
     if (!success) {
       return NextResponse.json(
@@ -36,7 +35,7 @@ export async function POST() {
       );
     }
 
-    // 4. Check for existing unpaid order in last 30 minutes (prevent duplicates)
+    // 4. Check for existing unpaid order in last 30 minutes
     const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const { data: existingOrder } = await supabase
       .from("payment_orders")
@@ -49,7 +48,6 @@ export async function POST() {
       .maybeSingle();
 
     if (existingOrder) {
-      console.log(`[Order] Returning existing unpaid order: ${existingOrder.razorpay_order_id}`);
       return NextResponse.json({
         orderId: existingOrder.razorpay_order_id,
         amount: existingOrder.amount,
@@ -67,7 +65,8 @@ export async function POST() {
     const amount = PAYMENT_CONFIG.PRO_SEMESTER_PRICE;
     const receiptId = `rect_${user.id.substring(0, 8)}_${Date.now()}`;
     
-    const order = await razorpay.orders.create({
+    const rzp = getRazorpay();
+    const order = await rzp.orders.create({
       amount: rupeesToPaise(amount),
       currency: "INR",
       receipt: receiptId,
