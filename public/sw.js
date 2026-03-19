@@ -21,6 +21,9 @@ const KNOWN_CACHES = [
   // v3 is current — not listed here, it will be kept
 ];
 
+// One-time cleanup: delete legacy next-pwa/workbox caches on activate
+const LEGACY_CACHE_PREFIXES = ["workbox-", "next-pwa-"];
+
 /**
  * Files to precache on install — the offline shell.
  * Keep this small; only truly static, fingerprint-free assets.
@@ -109,11 +112,22 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     Promise.all([
-      // Delete only KNOWN old cache versions (explicit list, not wildcard).
-      // This avoids purging caches belonging to other tools or extensions,
-      // and prevents a race where a controlled page requests a chunk that
-      // was just deleted before it could reload.
-      Promise.all(KNOWN_CACHES.map((name) => caches.delete(name))),
+      // Delete explicitly KNOWN old cache versions, OR any legacy Workbox/next-pwa caches.
+      // This avoids purging completely unknown caches (which might belong to other tools)
+      // while safely bridging the gap from the old auto-generated SW.
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => {
+              // Delete if it's explicitly in our old version list
+              if (KNOWN_CACHES.includes(key)) return true;
+              // OR if it's a legacy auto-generated cache from the previous setup
+              if (LEGACY_CACHE_PREFIXES.some((prefix) => key.startsWith(prefix))) return true;
+              return false;
+            })
+            .map((key) => caches.delete(key))
+        )
+      ),
       // Take control of all open tabs immediately
       self.clients.claim(),
     ]),
@@ -150,7 +164,7 @@ self.addEventListener("fetch", (event) => {
         try {
           const networkResponse = await fetch(request);
           if (networkResponse.ok) {
-            cache.put(request, networkResponse.clone());
+            event.waitUntil(cache.put(request, networkResponse.clone()));
           }
           return networkResponse;
         } catch {
