@@ -1,135 +1,118 @@
 # Contributing to 75 Club
 
-First off, thank you for taking the time to contribute! 🎉
+Thank you for your interest in contributing. Every meaningful contribution — bug fix, feature, test, or documentation improvement — is welcome.
 
-## Quick Start (Local Setup)
+---
 
-### Prerequisites
+## Setup
 
-- **Node.js** 20+
-- **npm** 10+
-- A [Supabase](https://supabase.com) project (free tier is fine)
-- Optional: Gemini AI API key, Razorpay test account
-
-### Steps
+> Full setup instructions are in [README.md](README.md). Here's the short version.
 
 ```bash
-# 1. Fork and clone the repo
+# Fork the repo on GitHub, then:
 git clone https://github.com/<your-username>/the-bunk-planner-web.git
 cd the-bunk-planner-web
-
-# 2. Install dependencies
 npm install
-
-# 3. Set up environment variables
-cp .env.example .env.local
-# Fill in your Supabase URL and anon key at minimum
-
-# 4. Run the database migrations
-# Go to your Supabase project → SQL Editor and run the .sql files in this order:
-#   supabase_schema.sql
-#   supabase_migration_phase2.sql
-#   supabase_migration_calendar.sql
-#   supabase_migration_timetable.sql
-#   supabase_payment_migration.sql
-
-# 5. Start the dev server
+cp .env.example .env.local   # fill in NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY at minimum
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — the app should load without AI or payment features.
+---
 
-> **Minimum viable setup:** You only _need_ `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. AI scan and Razorpay payments will be disabled without their keys.
+## Branches & Git Rules
+
+| Rule                                               | Why it matters                                                                                                                                                                                     |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Never force-push to a shared or open PR branch** | Force-pushing rewrites history, breaking every other contributor's local copy of that branch and making the PR review diff unusable.                                                               |
+| **Do not rebase open PR branches**                 | Rebasing changes commit SHAs; it makes the review history impossible to follow and invalidates any previous approvals. Use a merge commit (`git merge main`) to bring in upstream changes instead. |
+| **One feature / fix per PR**                       | Keeps reviews focused and rollbacks clean.                                                                                                                                                         |
+
+### Branch naming
+
+```
+feat/short-description     # new feature
+fix/short-description      # bug fix
+chore/short-description    # deps, tooling, refactor
+docs/short-description     # documentation only
+```
 
 ---
 
-## Development Workflow
+## Before Opening a PR
 
-### Branch Naming
-
-```text
-feat/short-description     # New feature
-fix/short-description      # Bug fix
-chore/short-description    # Tooling, deps, refactor
-docs/short-description     # Documentation only
-```
-
-### Before Submitting a PR
+Run all four checks locally — they will also run in CI and a failing build blocks merge:
 
 ```bash
 npm run type-check   # TypeScript — must pass
-npm run lint         # ESLint — must pass
-npm test             # Vitest unit tests — must pass
-npm run build        # Production build — must pass
-```
-
-All four checks also run automatically in GitHub Actions on every PR.
-
-### Commit Style
-
-We follow **Conventional Commits**:
-
-```text
-feat(dashboard): add subject reorder drag-and-drop
-fix(pwa): resolve cold-start blank screen on iOS
-docs(readme): update setup instructions
-chore(deps): bump next to 16.2.0
+npm run lint         # ESLint   — must pass
+npm test             # Vitest   — must pass
+npm run build        # Turbopack production build — must pass
 ```
 
 ---
 
-## Project Structure
+## Commit Style (Conventional Commits)
 
-```text
-app/                    # Next.js App Router pages and layouts
-  (auth)/               # Login, signup, forgot password
-  dashboard/            # Protected dashboard routes
-  api/                  # API route handlers
-components/
-  attendance/           # AttendanceCard, subject cards
-  dashboard/            # StatsGrid, ManualSubjectDialog
-  pwa/                  # PWALoadingGuard, install prompts
-  scan/                 # AI timetable scanner UI
-  layout/               # Sidebar, MobileNav, Navbar
-  ui/                   # Shadcn/UI base components
-lib/
-  attendance.ts         # Pure attendance calculation functions ← testable core
-  subscription.ts       # Free vs Pro tier logic
-  supabase/client.ts    # Browser Supabase client
-  supabase/server.ts    # Server Supabase client
-  types.ts              # Shared TypeScript types
-public/
-  sw.js                 # Hand-written service worker
-  manifest.json         # PWA manifest
-.github/workflows/
-  ci.yml                # GitHub Actions CI pipeline
 ```
+feat(dashboard): add subject drag-and-drop reordering
+fix(pwa): resolve cold-start blank screen on iOS
+docs(readme): update database migration steps
+chore(deps): bump next to 16.2.0
+```
+
+Format: `type(scope): short description` — keep it under 72 characters.
+
+---
+
+## Pull Request Template
+
+When you open a PR, your description **must include**:
+
+### ✅ Checks passed
+
+List which of the four CI checks pass locally. If any fail, explain why.
+
+```
+- [x] type-check
+- [x] lint
+- [x] test
+- [ ] build — failing because of X (being fixed in next commit)
+```
+
+### 📸 Screenshots / Recording
+
+- For **any UI change** — before & after screenshots are required.
+- For **complex interactions** (animations, payment flow, PWA install) — a short screen recording is strongly preferred.
+- For **backend-only / pure logic changes** — screenshots are not required, but paste relevant log output or test results.
+
+### 📝 Description
+
+Briefly explain _what_ changed and _why_. Link any related issue with `Closes #123`.
 
 ---
 
 ## What to Work On
 
-Check the [Issues](https://github.com/Kesavaraja/the-bunk-planner-web/issues) tab. Good first issues are labelled `good first issue`.
+Browse the [Issues](../../issues) tab. Start with `good first issue` or `help wanted` labels.
 
-Common areas where contributions are very welcome:
+High-value contribution areas:
 
-- 📱 **PWA improvements** — iOS Safari edge cases, better offline experience
-- 🧪 **Tests** — More unit tests for `lib/`, Playwright E2E tests
-- 🌐 **Accessibility** — ARIA labels, keyboard navigation
-- 📝 **Docs** — Clearer setup instructions, architecture notes
-- 🐛 **Bug fixes** — Issues labelled `bug`
+- 📱 **PWA edge cases** — iOS Safari, offline behaviour
+- 🧪 **Tests** — more unit tests in `lib/`, Playwright E2E
+- ♿ **Accessibility** — ARIA, keyboard navigation, focus management
+- 🐛 **Bug fixes** — anything labelled `bug`
 
 ---
 
 ## Code Style
 
-- **TypeScript** for everything — no `any` unless absolutely necessary
-- **Tailwind CSS** for styling — no inline styles except in server components
-- **Shadcn/UI** for new UI components — check existing components before adding dependencies
-- All new calculation logic in `lib/` (pure functions) — not inside components
+- **TypeScript everywhere** — no `any` unless `eslint-disable` is explicitly justified in a comment
+- **Tailwind CSS** for styling — no arbitrary inline styles in components
+- **Pure functions in `lib/`** — keep calculation logic out of components; it stays testable
+- **Shadcn/UI** for new primitives — do not add new UI libraries without a discussion first
 
 ---
 
 ## Questions?
 
-Open a [Discussion](https://github.com/Kesavaraja/the-bunk-planner-web/discussions) or tag `@Kesavaraja` in your PR.
+Open a [Discussion](../../discussions) or ping `@Kesavaraja67` in your PR.
