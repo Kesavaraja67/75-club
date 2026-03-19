@@ -8,6 +8,12 @@
   "orientation": "portrait",
   "background_color": "#0a0a0a",
   "theme_color": "#FF6B35",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "edge_side_panel": { "preferred_width": 400 },
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
   "icons": [
     {
       "src": "/icon-192.png",

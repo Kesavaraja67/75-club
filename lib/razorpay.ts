@@ -1,55 +1,51 @@
 import Razorpay from "razorpay";
 
 /**
- * @file lib/razorpay.ts
- * @description Razorpay configuration and utility functions for payment processing.
- * Initializes the Razorpay instance with environment variables and provides helpers.
+ * Lazy initialization for Razorpay client.
+ * This prevents build-time environment variable checks from failing.
  */
+let razorpayInstance: Razorpay | null = null;
 
-/**
- * Razorpay instance initialized with server-side keys.
- * Used for creating orders and verifying signatures.
- * @type {Razorpay}
- */
-const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-const keySecret = process.env.RAZORPAY_KEY_SECRET;
+export function getRazorpay(): Razorpay {
+  if (razorpayInstance) return razorpayInstance;
 
-if (!keyId || !keySecret) {
-  throw new Error("Missing Razorpay configuration: NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set");
-}
+  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
-export const razorpay = new Razorpay({
-  key_id: keyId,
-  key_secret: keySecret,
-});
+  // Narrow validation to fields needed for order creation/clients
+  if (!keyId || !keySecret) {
+    console.error("Missing Razorpay configuration (NEXT_PUBLIC_RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET)");
+    throw new Error(
+      "Missing Razorpay configuration keyId and keySecret. " +
+      "These must be set for payment functionality to work."
+    );
+  }
 
-/**
- * Payment configuration constants.
- * @property {number} PRO_SEMESTER_PRICE - Cost of the Pro plan in INR.
- * @property {string} CURRENCY - Currency code (INR).
- * @property {string} RECEIPT_PREFIX - Prefix for internal order receipt IDs.
- */
-export const PAYMENT_CONFIG = {
-  PRO_SEMESTER_PRICE: 249,
-  CURRENCY: "INR",
-  RECEIPT_PREFIX: "order_",
-} as const;
+  razorpayInstance = new Razorpay({
+    key_id: keyId,
+    key_secret: keySecret,
+  });
 
-/**
- * Generates a unique receipt ID for orders.
- * combines prefix, timestamp, and random string.
- * @returns {string} A unique identifier string for the receipt.
- */
-export function generateReceiptId(): string {
-  return `${PAYMENT_CONFIG.RECEIPT_PREFIX}${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+  return razorpayInstance;
 }
 
 /**
- * Converts an amount in Rupees to Paise (lowest currency unit).
- * Razorpay APIs require amounts to be passed in paise.
- * @param {number} amount - The amount in INR.
- * @returns {number} The amount in paise.
+ * Utility to validate price strictly to 249 for the semester plan.
+ * Prevents client-side price manipulation.
  */
-export function rupeesToPaise(amount: number): number {
-  return Math.round(amount * 100);
+export function validatePrice(amountInPaise: number) {
+  const EXPECTED_API_PRICE = 24900; // ₹249.00
+  return amountInPaise === EXPECTED_API_PRICE;
+}
+
+/**
+ * Helper to generate order prefill notes
+ */
+export function generateOrderNotes(userId: string, planType: string = 'semester') {
+  return {
+    userId: userId,
+    planType: planType,
+    app: "75-club",
+    version: "1.0.0"
+  };
 }

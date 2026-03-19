@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { razorpay, PAYMENT_CONFIG, generateReceiptId, rupeesToPaise } from "@/lib/razorpay";
+import { getRazorpay, generateOrderNotes } from "@/lib/razorpay";
 import { rateLimit } from "@/lib/rate-limit";
+import { getServerSubscriptionStatus } from "@/lib/subscription-server";
 
 export async function POST() {
   try {
@@ -10,88 +11,104 @@ export async function POST() {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // 2. Check if user already has active Pro subscription
+    const subStatus = await getServerSubscriptionStatus(user.id);
+    if (subStatus.isProUser) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
+        { error: "You already have an active Pro subscription" },
+        { status: 400 }
       );
     }
 
-    // Rate Limit: 5 order creations per minute (prevent spamming orders)
-    const { success, reset } = await rateLimit(`order:${user.id}`, 5, 60 * 1000);
+    // 3. Rate Limit: 5 order creations per hour (prevent spamming)
+    const { success, reset } = await rateLimit(`order_hardened:${user.id}`, 5, 60 * 60 * 1000);
     if (!success) {
       return NextResponse.json(
-        { error: "Too many payment attempts. Please wait a minute." },
+        { error: "Too many payment attempts. Please try again in an hour." },
         { 
           status: 429,
           headers: { 'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString() }
         }
       );
     }
+    // 4. PREVENT DUPLICATE ORDERS (idempotency)
+    // Check for an existing 'created' order in the last 15 minutes to avoid spamming Razorpay.
+    const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const { data: existingOrder } = await supabase
+      .from("payment_orders")
+      .select("razorpay_order_id, amount, currency")
+      .eq("user_id", user.id)
+      .eq("plan_type", "semester")
+      .eq("status", "created")
+      .gt("created_at", fifteenMinsAgo)
+      .order("created_at", { ascending: false })
+      .maybeSingle();
 
-    // Fail fast if public key is missing
-    const razorpayKeyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    if (!razorpayKeyId) {
-      console.error("Missing NEXT_PUBLIC_RAZORPAY_KEY_ID");
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    if (existingOrder) {
+      console.log(`[Order] Reusing existing order: ${existingOrder.razorpay_order_id}`);
+      return NextResponse.json({
+        orderId: existingOrder.razorpay_order_id,
+        amount: existingOrder.amount,
+        currency: existingOrder.currency,
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        user: {
+          name: user.email?.split('@')[0] || "Student",
+          email: user.email,
+          contact: "", 
+        }
+      });
     }
 
-    // 2. Plan configuration (Hardcoded to semester as requested)
+    // 5. CREATE NEW ORDER IN RAZORPAY
+    const razorpay = getRazorpay();
+    const amount = 249; // Strictly ₹249
+    const amountInPaise = amount * 100;
 
-    const ALLOWED_PLANS: Record<string, number> = {
-      "semester": PAYMENT_CONFIG.PRO_SEMESTER_PRICE,
-    };
-
-    // Default to semester if invalid plan provided
-    const validPlanType = "semester";
-    const amount = ALLOWED_PLANS[validPlanType];
-
-    // 4. Create Razorpay order
     const order = await razorpay.orders.create({
-      amount: rupeesToPaise(amount), // Amount in paise
-      currency: PAYMENT_CONFIG.CURRENCY,
-      receipt: generateReceiptId(),
-      notes: {
-        userId: user.id,
-        userEmail: user.email || "",
-        planType: validPlanType,
-      },
+      amount: amountInPaise,
+      currency: "INR",
+      receipt: `receipt_${Date.now()}_${user.id.substring(0, 8)}`,
+      notes: generateOrderNotes(user.id, "semester"),
     });
 
-    // 5. Store order in database (optional but recommended)
+    // 6. Store order in database
     const { error: dbError } = await supabase
       .from("payment_orders")
       .insert({
-        order_id: crypto.randomUUID(), 
         user_id: user.id,
         amount: amount,
-        currency: PAYMENT_CONFIG.CURRENCY,
+        currency: "INR",
         status: "created",
         razorpay_order_id: order.id,
+        created_at: new Date().toISOString()
       });
 
     if (dbError) {
-      console.error("Database error:", dbError);
-      // Attempt to cancel the Razorpay order or return error
-      return NextResponse.json(
-        { error: "Failed to create order record" },
-        { status: 500 }
-      );
+      console.error("[Order] Database record failed:", dbError);
+      return NextResponse.json({ error: "Failed to initialize order" }, { status: 500 });
     }
 
-    // 6. Return order details to frontend
+    // 7. Return order details + prefill data
     return NextResponse.json({
       orderId: order.id,
       amount: amount,
-      currency: PAYMENT_CONFIG.CURRENCY,
-      key: razorpayKeyId,
+      currency: "INR",
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      user: {
+        name: user.user_metadata?.full_name || "",
+        email: user.email || "",
+        contact: user.user_metadata?.phone || ""
+      }
     });
 
   } catch (error: unknown) {
-    console.error("Create order error:", error);
-    const message = error instanceof Error ? error.message : "Failed to create order";
+    console.error("[Order] Exception:", error);
     return NextResponse.json(
-      { error: message },
-      { status: 500 }
+      { error: "Internal server error during order creation" },
+      { status: 503 }
     );
   }
 }

@@ -8,13 +8,39 @@ import AttendanceCard from "@/components/attendance/AttendanceCard";
 import { Subject } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import ScanUploader from "@/components/scan/ScanUploader";
-import ResultsDialog, { ScannedSubject } from "@/components/scan/ResultsDialog";
-import ManualSubjectDialog from "@/components/dashboard/ManualSubjectDialog";
 import { toast } from "sonner";
 import { fetchSubscriptionStatus, UPGRADE_MESSAGES, SubscriptionStatus } from "@/lib/subscription";
 import UpgradeDialog from "@/components/subscription/UpgradeDialog";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { SectionErrorBoundary } from "@/components/dashboard/SectionErrorBoundary";
+import dynamic from "next/dynamic";
+import type { ScannedSubject } from "@/components/scan/ResultsDialog";
+
+const ScanUploader = dynamic(() => import("@/components/scan/ScanUploader"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center p-12">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <p className="text-sm mt-4 text-muted-foreground animate-pulse">Loading AI Scanner...</p>
+    </div>
+  ),
+});
+
+const loadingFallback = () => (
+  <div className="flex justify-center p-8" role="status" aria-live="polite">
+    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+    <span className="sr-only">Loading dialog content...</span>
+  </div>
+);
+
+const ResultsDialog = dynamic(() => import("@/components/scan/ResultsDialog"), { 
+  ssr: false,
+  loading: loadingFallback,
+});
+const ManualSubjectDialog = dynamic(() => import("@/components/dashboard/ManualSubjectDialog"), { 
+  ssr: false,
+  loading: loadingFallback,
+});
 
 export default function DashboardPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -454,7 +480,9 @@ export default function DashboardPage() {
               <span className="text-3xl">📸</span> Upload Screenshots
             </DialogTitle>
           </DialogHeader>
-          <ScanUploader onScanComplete={handleScanComplete} />
+          <SectionErrorBoundary sectionName="AI Scanner">
+            <ScanUploader onScanComplete={handleScanComplete} onCancel={() => setIsScanOpen(false)} />
+          </SectionErrorBoundary>
         </DialogContent>
       </Dialog>
 

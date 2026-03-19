@@ -10,21 +10,60 @@ import Image from "next/image";
 
 import UpgradeDialog from "@/components/subscription/UpgradeDialog"; // Import UpgradeDialog
 import { useRouter } from "next/navigation"; // Import useRouter
+import { fetchSubscriptionStatus } from "@/lib/subscription";
 
 export default function LandingPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isProUser, setIsProUser] = useState(false);
+  const [authResolved, setAuthResolved] = useState(false);
   const [openUpgrade, setOpenUpgrade] = useState(false); // Add state for upgrade dialog
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
   useEffect(() => {
+    let isMounted = true;
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        // Handle definite errors vs transport timeouts
+        if (error) {
+          console.error("[Auth] getUser error:", error);
+          if (error.status === 401 || error.status === 403) {
+            if (isMounted) {
+              setIsAuthenticated(false);
+              setIsProUser(false);
+            }
+          }
+          // On 5xx or network timeout, we do NOT set false. 
+          // We preserve the indeterminate state (Loading...) 
+          // to prevent kicking valid users to login.
+          return;
+        }
+
+        if (!isMounted) return;
+
+        if (!user) {
+          setIsAuthenticated(false);
+          setIsProUser(false);
+          return;
+        }
+
+        const subStatus = await fetchSubscriptionStatus(user.id);
+        if (!isMounted) return;
         setIsAuthenticated(true);
+        setIsProUser(subStatus.isProUser);
+      } catch (err) {
+        console.error("[Auth] Transport exception:", err);
+        // Do not flip flags on transport exceptions (timeouts)
+      } finally {
+        if (isMounted) setAuthResolved(true);
       }
     };
     checkUser();
+    return () => {
+      isMounted = false;
+    };
   }, [supabase]);
 
   return (
@@ -184,11 +223,24 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <Link href={isAuthenticated ? "/dashboard" : "/login"}>
-              <Button size="lg" className="h-14 px-10 text-lg font-display font-bold rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all">
-                Start Tracking Free 🎉
+            {authResolved ? (
+              <Link href={isAuthenticated ? "/dashboard" : "/login"}>
+                <Button 
+                  size="lg" 
+                  className="h-14 px-10 text-lg font-display font-bold rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
+                >
+                  Start Tracking Free 🎉
+                </Button>
+              </Link>
+            ) : (
+              <Button 
+                size="lg" 
+                disabled
+                className="h-14 px-10 text-lg font-display font-bold rounded-2xl neo-shadow-lg opacity-70"
+              >
+                Loading...
               </Button>
-            </Link>
+            )}
           </div>
         </section>
 
@@ -278,11 +330,26 @@ export default function LandingPage() {
                     <span>Email support</span>
                   </li>
                 </ul>
-                <Link href={isAuthenticated ? "/dashboard" : "/login"}>
-                  <Button variant="outline" size="lg" className="w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black">
-                    Start Free
+                {authResolved ? (
+                  <Link href={isAuthenticated ? "/dashboard" : "/login"}>
+                    <Button 
+                      variant="outline" 
+                      size="lg" 
+                      className="w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black"
+                    >
+                      Start Free
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    disabled
+                    className="w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black opacity-70"
+                  >
+                    Loading...
                   </Button>
-                </Link>
+                )}
               </div>
 
               {/* Pro Plan */}
@@ -319,11 +386,23 @@ export default function LandingPage() {
                   </li>
                 </ul>
                 <Button 
-                  onClick={() => isAuthenticated ? setOpenUpgrade(true) : router.push('/login')}
+                  onClick={() => {
+                    if (!authResolved) return;
+                    if (!isAuthenticated) router.push('/login');
+                    else if (isProUser) router.push('/dashboard');
+                    else setOpenUpgrade(true);
+                  }}
+                  disabled={!authResolved}
                   size="lg" 
-                  className="w-full font-display font-bold text-lg h-14 rounded-2xl bg-white text-[#FF6B35] hover:bg-white/90 border-3 border-black"
+                  className={`w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black transition-all ${
+                    !authResolved 
+                      ? "opacity-50 cursor-not-allowed" 
+                      : isProUser 
+                        ? "bg-[#FFE66D] text-black hover:bg-[#FFE66D]/90 cursor-pointer" 
+                        : "bg-white text-[#FF6B35] hover:bg-white/90"
+                  }`}
                 >
-                  Upgrade to Pro
+                  {!authResolved ? "Loading..." : isProUser ? "Go to Dashboard" : "Upgrade to Pro"}
                 </Button>
                 <p className="text-center text-sm mt-3 opacity-90">
                   Secure payment via Razorpay • One-time payment
@@ -347,11 +426,24 @@ export default function LandingPage() {
               <p className="text-xl text-muted-foreground mb-8 max-w-xl mx-auto">
                 Join 10,000+ students who never worry about attendance anymore.
               </p>
-            <Link href={isAuthenticated ? "/dashboard" : "/login"}>
-                <Button size="lg" className="h-16 px-12 text-lg font-display font-black rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all bg-[#FF6B35] text-white border-3 border-black">
-                  Start Free Now →
+             {authResolved ? (
+                <Link href={isAuthenticated ? "/dashboard" : "/login"}>
+                  <Button 
+                    size="lg" 
+                    className="h-16 px-12 text-lg font-display font-black rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all bg-[#FF6B35] text-white border-3 border-black"
+                  >
+                     Start Free Now →
+                  </Button>
+                </Link>
+              ) : (
+                <Button 
+                  size="lg" 
+                  disabled
+                  className="h-16 px-12 text-lg font-display font-black rounded-2xl neo-shadow-lg bg-[#FF6B35]/50 text-white border-3 border-black/50"
+                >
+                  Loading...
                 </Button>
-              </Link>
+              )}
               <p className="text-sm text-muted-foreground mt-4">
                 No credit card required • Setup in 30 seconds • Cancel anytime
               </p>

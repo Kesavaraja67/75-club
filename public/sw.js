@@ -46,6 +46,9 @@ function isNetworkOnly(request) {
   const url = new URL(request.url);
   const { hostname, pathname, searchParams } = url;
 
+  // External dynamic scripts
+  if (hostname === "checkout.razorpay.com") return true;
+
   // Supabase API / Auth endpoints
   if (hostname.endsWith(".supabase.co")) return true;
 

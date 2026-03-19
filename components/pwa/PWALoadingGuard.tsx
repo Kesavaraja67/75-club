@@ -4,6 +4,9 @@ import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import type { AuthChangeEvent } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { useAndroidBackButtonLock } from "@/hooks/useAndroidBackButtonLock";
+import { isInstalledPWA } from "@/lib/pwa-utils";
 
 /**
  * PWALoadingGuard
@@ -18,22 +21,17 @@ import { createClient } from "@/lib/supabase/client";
  *  3. Also call getSession() as a belt-and-suspenders fallback
  *  4. Hard 5-second timeout so the user is never permanently blocked
  */
-function isPWAStandalone(): boolean {
-  if (typeof window === "undefined") return false;
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    (navigator as unknown as { standalone?: boolean }).standalone === true
-  );
-}
 
 export default function PWALoadingGuard({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Initialize ready = true for normal browser tabs (no splash needed)
-  // Initialize ready = false only in PWA standalone mode
-  const [ready, setReady] = useState<boolean>(() => !isPWAStandalone());
+  const { isOnline } = useNetworkStatus(); // Initialize global network monitoring
+  useAndroidBackButtonLock(); // Initialize global hardware back button lock
+  
+  // Initialize ready = false (client-hidden) to avoid hydration mismatch
+  const [ready, setReady] = useState<boolean>(false);
   const resolvedRef = useRef(false);
 
   const resolve = () => {
@@ -43,8 +41,17 @@ export default function PWALoadingGuard({
   };
 
   useEffect(() => {
-    // If already ready (non-PWA), nothing to do
     if (ready) return;
+
+    if (!isInstalledPWA()) {
+      setTimeout(() => resolve(), 0);
+      return;
+    }
+
+    if (!isOnline) {
+      setTimeout(() => resolve(), 0);
+      return; // Will re-run if isOnline changes because it's in the dependency array
+    }
 
     const supabase = createClient();
 
@@ -87,8 +94,7 @@ export default function PWALoadingGuard({
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ready, isOnline]);
 
   if (!ready) {
     return <PWASplashScreen />;

@@ -1,73 +1,50 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Prevent Next.js from bundling these server-side, which prevents Turbopack from choking on their Node.js specific sub-dependencies like `fflate`
+  /* config options here */
+  // Prevent Turbopack from trying to bundle jspdf's Node.js worker internals (fflate/node.cjs)
+  // during the SSR pass. These are dynamically imported in the browser only.
   serverExternalPackages: ["jspdf", "jspdf-autotable", "fflate"],
-  turbopack: {},
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "plus.unsplash.com",
+      },
+    ],
+  },
+  // Custom headers for PWA and Security
   async headers() {
     return [
-      // ── Service Worker & Manifest: always revalidate after deploy ─────────
-      {
-        source: "/sw.js",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=0, must-revalidate",
-          },
-          { key: "Service-Worker-Allowed", value: "/" },
-        ],
-      },
-      {
-        source: "/manifest.json",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=0, must-revalidate",
-          },
-        ],
-      },
-
-
-
-      // ── Security header for all routes (HTML caching is handled by sw.js) ──
       {
         source: "/(.*)",
         headers: [
           {
-            // Prevents MIME-type sniffing attacks
-            key: "X-Content-Type-Options",
-            value: "nosniff",
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com",
+              "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
+              "connect-src 'self' https://api.razorpay.com https://*.supabase.co wss://*.supabase.co",
+              "img-src 'self' data: https://checkout.razorpay.com",
+              "style-src 'self' 'unsafe-inline'",
+              "font-src 'self' data: https://fonts.gstatic.com",
+            ].join('; '),
           },
         ],
       },
-
-      // ── Dashboard: no-store to prevent any CDN / browser caching ──────────
+      // Never cache payment endpoints or the callback
       {
-        source: "/dashboard/:path*",
+        source: "/api/payment/:path*",
         headers: [
           {
             key: "Cache-Control",
-            value: "no-store, no-cache, must-revalidate, proxy-revalidate",
+            value: "no-store, max-age=0, must-revalidate",
           },
-          { key: "Pragma", value: "no-cache" },
-          { key: "Expires", value: "0" },
-          { key: "CDN-Cache-Control", value: "no-store" },
-          { key: "Vercel-CDN-Cache-Control", value: "no-store" },
-        ],
-      },
-
-      // ── API routes: never cache ────────────────────────────────────────────
-      {
-        source: "/api/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "no-store, no-cache, must-revalidate, proxy-revalidate",
-          },
-          { key: "Pragma", value: "no-cache" },
-          { key: "Expires", value: "0" },
-          { key: "CDN-Cache-Control", value: "no-store" },
-          { key: "Vercel-CDN-Cache-Control", value: "no-store" },
         ],
       },
     ];

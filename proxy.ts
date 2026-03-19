@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { supabaseFetchWithTimeout } from '@/lib/fetch-with-timeout'
 
 // Next.js 16: the function MUST be named "proxy" (not "middleware")
 export async function proxy(request: NextRequest) {
@@ -13,6 +14,9 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        fetch: supabaseFetchWithTimeout,
+      },
       cookies: {
         get(name: string) {
           return request.cookies.get(name)?.value
@@ -56,16 +60,24 @@ export async function proxy(request: NextRequest) {
   )
 
   // Refresh the session so cookies stay valid.
-  // Wrapped in try/catch: in local dev the Edge/Node runtime
-  // sometimes can't reach Supabase. Let the request through
-  // anyway — page-level auth checks will handle it.
   try {
-    await supabase.auth.getUser()
+    const { error } = await supabase.auth.getUser()
+    
+    // If we receive a definitive auth error (like invalid token), sign out.
+    // Transport/fetch errors will just pass through without disrupting the session.
+    if (error && error.status && (error.status === 401 || error.status === 403)) {
+      await supabase.auth.signOut()
+      
+      // CRITICAL: Set revocation markers for the browser client to clear localStorage. 
+      // This prevents PWA mode from rehydrating a revoked token from localStorage.
+      // We set these as short-lived cookies (10s) just to signal the client.
+      const cookieOptions = { path: '/', maxAge: 10 };
+      response.cookies.set('sb-access-token-revoked', 'true', cookieOptions);
+      response.cookies.set('sb-refresh-token-revoked', 'true', cookieOptions);
+    }
   } catch {
-    // Session refresh failed (invalid token, etc.). 
-    // Clear the invalid session so the user is signed out cleanly.
-    await supabase.auth.signOut()
-    // console.error("Auth error in proxy:", error) // Optional: suppress logging
+    // If getUser throws entirely (e.g. transport timeout), just act as passthrough
+    return response
   }
 
   return response
