@@ -13,9 +13,10 @@ import Razorpay from "razorpay";
  */
 const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 const keySecret = process.env.RAZORPAY_KEY_SECRET;
+const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-if (!keyId || !keySecret) {
-  throw new Error("Missing Razorpay configuration: NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set");
+if (!keyId || !keySecret || !webhookSecret) {
+  throw new Error("Missing Razorpay configuration: NEXT_PUBLIC_RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, and RAZORPAY_WEBHOOK_SECRET must be set");
 }
 
 export const razorpay = new Razorpay({

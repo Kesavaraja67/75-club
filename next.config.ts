@@ -34,9 +34,20 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: [
           {
-            // Prevents MIME-type sniffing attacks
             key: "X-Content-Type-Options",
             value: "nosniff",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com",
+              "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
+              "connect-src 'self' https://api.razorpay.com https://*.supabase.co wss://*.supabase.co",
+              "img-src 'self' data: https://checkout.razorpay.com",
+              "style-src 'self' 'unsafe-inline'",
+              "font-src 'self' data: https://fonts.gstatic.com",
+            ].join('; '),
           },
         ],
       },
