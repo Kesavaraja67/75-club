@@ -15,14 +15,35 @@ export default async function DashboardLayout({
   let user = null;
   try {
     const { data, error } = await supabase.auth.getUser();
-    if (error) throw error;
+    
+    // AuthApiError from Supabase signifies the token is literally invalid/expired
+    if (error) {
+      if (error.status && error.status >= 400 && error.status < 500) {
+        throw error; // Let the catch block handle the redirect
+      }
+      // If it's a 5xx or network timeout -> service failure, NOT an auth invalidation
+      throw new Error(`Auth Service Error: ${error.message}`);
+    }
+    
     user = data.user;
-  } catch (error) {
-    // Token might be invalid or expired
-    console.error("Dashboard auth check failed:", error);
-    // User remains null, will trigger redirect below
+  } catch (error: unknown) {
+    // If it's a *true* auth failure, redirect to login
+    const isAuthError = 
+      error && 
+      typeof error === 'object' && 
+      ('name' in error && error.name === 'AuthApiError' || 
+      ('status' in error && typeof error.status === 'number' && error.status >= 400 && error.status < 500));
+      
+    if (isAuthError) {
+      redirect('/login?redirect=/dashboard');
+    }
+    
+    // If it's a network timeout, throw it to trigger error.tsx so the user can hit "Retry"
+    // instead of being kicked to the login screen.
+    throw error;
   }
   
+  // Fallback if data was weirdly empty
   if (!user) {
     redirect('/login?redirect=/dashboard');
   }
