@@ -27,8 +27,9 @@ const ScanUploader = dynamic(() => import("@/components/scan/ScanUploader"), {
 });
 
 const loadingFallback = () => (
-  <div className="flex justify-center p-8">
+  <div className="flex justify-center p-8" role="status" aria-live="polite">
     <Loader2 className="h-6 w-6 animate-spin text-primary" />
+    <span className="sr-only">Loading dialog content...</span>
   </div>
 );
 

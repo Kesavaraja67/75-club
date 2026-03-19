@@ -44,12 +44,12 @@ export default function PWALoadingGuard({
     if (ready) return;
 
     if (!isInstalledPWA()) {
-      resolve();
+      setTimeout(() => resolve(), 0);
       return;
     }
 
     if (!isOnline) {
-      resolve();
+      setTimeout(() => resolve(), 0);
       return; // Will re-run if isOnline changes because it's in the dependency array
     }
 

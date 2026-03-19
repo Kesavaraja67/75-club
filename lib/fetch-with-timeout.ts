@@ -21,7 +21,15 @@ export async function fetchWithTimeout<T>(
  */
 export const supabaseFetchWithTimeout: typeof fetch = (input, init) => {
   return fetchWithTimeout(
-    (signal) => fetch(input, { ...init, signal }),
+    (timeoutSignal) => {
+      const signal = init?.signal
+        ? typeof AbortSignal !== 'undefined' && 'any' in AbortSignal
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ? (AbortSignal as any).any([init.signal, timeoutSignal])
+          : timeoutSignal // Node.js < 20 / older browser fallback
+        : timeoutSignal;
+      return fetch(input, { ...init, signal });
+    },
     8000,
     "Data connection timed out. Please check your connection and try again."
   );

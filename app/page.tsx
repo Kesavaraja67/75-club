@@ -15,6 +15,7 @@ import { fetchSubscriptionStatus } from "@/lib/subscription";
 export default function LandingPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isProUser, setIsProUser] = useState(false);
+  const [authResolved, setAuthResolved] = useState(false);
   const [openUpgrade, setOpenUpgrade] = useState(false); // Add state for upgrade dialog
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -41,6 +42,8 @@ export default function LandingPage() {
         if (!isMounted) return;
         setIsAuthenticated(false);
         setIsProUser(false);
+      } finally {
+        if (isMounted) setAuthResolved(true);
       }
     };
     checkUser();
@@ -206,9 +209,13 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <Link href={isAuthenticated ? "/dashboard" : "/login"}>
-              <Button size="lg" className="h-14 px-10 text-lg font-display font-bold rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all">
-                Start Tracking Free 🎉
+            <Link href={!authResolved ? "#" : isAuthenticated ? "/dashboard" : "/login"}>
+              <Button 
+                size="lg" 
+                disabled={!authResolved}
+                className="h-14 px-10 text-lg font-display font-bold rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
+              >
+                {authResolved ? "Start Tracking Free 🎉" : "Loading..."}
               </Button>
             </Link>
           </div>
@@ -300,9 +307,14 @@ export default function LandingPage() {
                     <span>Email support</span>
                   </li>
                 </ul>
-                <Link href={isAuthenticated ? "/dashboard" : "/login"}>
-                  <Button variant="outline" size="lg" className="w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black">
-                    Start Free
+                <Link href={!authResolved ? "#" : isAuthenticated ? "/dashboard" : "/login"}>
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    disabled={!authResolved}
+                    className="w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black"
+                  >
+                    {authResolved ? "Start Free" : "Loading..."}
                   </Button>
                 </Link>
               </div>
@@ -342,18 +354,22 @@ export default function LandingPage() {
                 </ul>
                 <Button 
                   onClick={() => {
+                    if (!authResolved) return;
                     if (!isAuthenticated) router.push('/login');
                     else if (isProUser) router.push('/dashboard');
                     else setOpenUpgrade(true);
                   }}
+                  disabled={!authResolved}
                   size="lg" 
                   className={`w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black transition-all ${
-                    isProUser 
-                      ? "bg-[#FFE66D] text-black hover:bg-[#FFE66D]/90 cursor-pointer" 
-                      : "bg-white text-[#FF6B35] hover:bg-white/90"
+                    !authResolved 
+                      ? "opacity-50 cursor-not-allowed" 
+                      : isProUser 
+                        ? "bg-[#FFE66D] text-black hover:bg-[#FFE66D]/90 cursor-pointer" 
+                        : "bg-white text-[#FF6B35] hover:bg-white/90"
                   }`}
                 >
-                  {isProUser ? "Go to Dashboard" : "Upgrade to Pro"}
+                  {!authResolved ? "Loading..." : isProUser ? "Go to Dashboard" : "Upgrade to Pro"}
                 </Button>
                 <p className="text-center text-sm mt-3 opacity-90">
                   Secure payment via Razorpay • One-time payment
@@ -377,9 +393,13 @@ export default function LandingPage() {
               <p className="text-xl text-muted-foreground mb-8 max-w-xl mx-auto">
                 Join 10,000+ students who never worry about attendance anymore.
               </p>
-            <Link href={isAuthenticated ? "/dashboard" : "/login"}>
-                <Button size="lg" className="h-16 px-12 text-lg font-display font-black rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all bg-[#FF6B35] text-white border-3 border-black">
-                  Start Free Now →
+             <Link href={!authResolved ? "#" : isAuthenticated ? "/dashboard" : "/login"}>
+                <Button 
+                  size="lg" 
+                  disabled={!authResolved}
+                  className="h-16 px-12 text-lg font-display font-black rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all bg-[#FF6B35] text-white border-3 border-black"
+                >
+                  {authResolved ? "Start Free Now →" : "Loading..."}
                 </Button>
               </Link>
               <p className="text-sm text-muted-foreground mt-4">

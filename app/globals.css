@@ -158,8 +158,10 @@
 }
 
 /* Smooth Scroll Behavior */
-html {
-  scroll-behavior: smooth;
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 /* Focus Visible for Accessibility */

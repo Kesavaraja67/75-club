@@ -63,12 +63,17 @@ export async function proxy(request: NextRequest) {
   // Wrapped in try/catch: in local dev the Edge/Node runtime
   // sometimes can't reach Supabase. Let the request through
   // anyway — page-level auth checks will handle it.
-  const { error } = await supabase.auth.getUser()
-  
-  // If we receive a definitive auth error (like invalid token), sign out.
-  // Transport/fetch errors will just pass through without disrupting the session.
-  if (error && error.status && (error.status === 401 || error.status === 403)) {
-    await supabase.auth.signOut()
+  try {
+    const { error } = await supabase.auth.getUser()
+    
+    // If we receive a definitive auth error (like invalid token), sign out.
+    // Transport/fetch errors will just pass through without disrupting the session.
+    if (error && error.status && (error.status === 401 || error.status === 403)) {
+      await supabase.auth.signOut()
+    }
+  } catch {
+    // If getUser throws entirely (e.g. transport timeout), just act as passthrough
+    return response
   }
 
   return response

@@ -17,11 +17,20 @@ export const createClient = () => {
     options.cookies = {
       get(name: string) {
         if (typeof window === 'undefined') return '';
-        const localVal = window.localStorage.getItem(`sb-${name}`);
-        if (localVal) return localVal;
+        
+        const storageKey = `sb-${name}`;
+        const localVal = window.localStorage.getItem(storageKey);
+        
         const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const match = document.cookie.match(new RegExp('(^| )' + escapedName + '=([^;]+)'));
-        return match ? match[2] : '';
+        const cookieVal = match ? match[2] : null;
+
+        if (cookieVal && cookieVal !== localVal) {
+          window.localStorage.setItem(storageKey, cookieVal);
+          return cookieVal;
+        }
+
+        return localVal ?? cookieVal ?? '';
       },
       set(name: string, value: string, cookieOptions: CookieOptions) {
         if (typeof window === 'undefined') return;
