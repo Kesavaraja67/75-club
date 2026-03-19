@@ -10,14 +10,18 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  retryCount: number;
 }
 
 export class SectionErrorBoundary extends Component<Props, State> {
   public state: State = {
-    hasError: false
+    hasError: false,
+    retryCount: 0
   };
 
-  public static getDerivedStateFromError(): State {
+  private static MAX_RETRIES = 3;
+
+  public static getDerivedStateFromError(): Partial<State> {
     return { hasError: true };
   }
 
@@ -27,6 +31,7 @@ export class SectionErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      const canRetry = this.state.retryCount < SectionErrorBoundary.MAX_RETRIES;
       return (
         <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-red-300 bg-red-50 rounded-xl relative overflow-hidden h-full w-full min-h-[150px]">
           <div className="absolute top-2 left-3 hidden md:flex gap-1.5">
@@ -41,13 +46,20 @@ export class SectionErrorBoundary extends Component<Props, State> {
           <p className="text-xs text-red-700 text-center mb-4 max-w-sm">
             This module crashed independently. The rest of your app is fine.
           </p>
+          {!canRetry && (
+            <p className="text-xs text-red-600 mb-2 font-bold">Max retries reached. Please reload the page.</p>
+          )}
           <Button 
             variant="outline" 
             size="sm" 
             className="border-red-400 text-red-800 hover:bg-red-100 font-bold"
-            onClick={() => this.setState({ hasError: false })}
+            onClick={() => this.setState(prev => ({ 
+              hasError: false, 
+              retryCount: prev.retryCount + 1 
+            }))}
+            disabled={!canRetry}
           >
-            Retry Section
+            {canRetry ? "Retry Section" : "Retry Disabled"}
           </Button>
         </div>
       );

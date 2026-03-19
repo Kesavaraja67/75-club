@@ -10,9 +10,11 @@ import Image from "next/image";
 
 import UpgradeDialog from "@/components/subscription/UpgradeDialog"; // Import UpgradeDialog
 import { useRouter } from "next/navigation"; // Import useRouter
+import { fetchSubscriptionStatus } from "@/lib/subscription";
 
 export default function LandingPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isProUser, setIsProUser] = useState(false);
   const [openUpgrade, setOpenUpgrade] = useState(false); // Add state for upgrade dialog
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -22,6 +24,8 @@ export default function LandingPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setIsAuthenticated(true);
+        const subStatus = await fetchSubscriptionStatus(user.id);
+        setIsProUser(subStatus.isProUser);
       }
     };
     checkUser();
@@ -319,11 +323,19 @@ export default function LandingPage() {
                   </li>
                 </ul>
                 <Button 
-                  onClick={() => isAuthenticated ? setOpenUpgrade(true) : router.push('/login')}
+                  onClick={() => {
+                    if (!isAuthenticated) router.push('/login');
+                    else if (isProUser) router.push('/dashboard');
+                    else setOpenUpgrade(true);
+                  }}
                   size="lg" 
-                  className="w-full font-display font-bold text-lg h-14 rounded-2xl bg-white text-[#FF6B35] hover:bg-white/90 border-3 border-black"
+                  className={`w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black transition-all ${
+                    isProUser 
+                      ? "bg-gray-100 text-gray-500 border-gray-400 cursor-default hover:bg-gray-100 neo-shadow-none" 
+                      : "bg-white text-[#FF6B35] hover:bg-white/90"
+                  }`}
                 >
-                  Upgrade to Pro
+                  {isProUser ? "Already a Pro User" : "Upgrade to Pro"}
                 </Button>
                 <p className="text-center text-sm mt-3 opacity-90">
                   Secure payment via Razorpay • One-time payment

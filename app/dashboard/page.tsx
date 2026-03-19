@@ -466,7 +466,7 @@ export default function DashboardPage() {
               <span className="text-3xl">📸</span> Upload Screenshots
             </DialogTitle>
           </DialogHeader>
-          <ScanUploader onScanComplete={handleScanComplete} />
+          <ScanUploader onScanComplete={handleScanComplete} onCancel={() => setIsScanOpen(false)} />
         </DialogContent>
       </Dialog>
 

@@ -12,9 +12,10 @@ import { SectionErrorBoundary } from "@/components/dashboard/SectionErrorBoundar
 
 interface ScanUploaderProps {
   onScanComplete: (data: ScannedSubject[]) => void;
+  onCancel?: () => void;
 }
 
-export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
+export default function ScanUploader({ onScanComplete, onCancel }: ScanUploaderProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -79,13 +80,13 @@ export default function ScanUploader({ onScanComplete }: ScanUploaderProps) {
     if (files.length === 0) return;
 
     // Prevent Out-Of-Memory crashes on budget Android devices
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const memory = (performance as any).memory;
-    if (memory && memory.jsHeapSizeLimit && memory.jsHeapSizeLimit < 500 * 1024 * 1024) {
+    const memory = (performance as { memory?: { jsHeapSizeLimit?: number } }).memory;
+    if (memory?.jsHeapSizeLimit && memory.jsHeapSizeLimit < 500 * 1024 * 1024) {
       toast.error("Low Device Memory", {
         description: "Your device may crash processing images. Please input subjects manually to be safe.",
         duration: 8000,
       });
+      onCancel?.();
       return;
     }
 

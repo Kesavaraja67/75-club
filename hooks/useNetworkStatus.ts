@@ -46,6 +46,7 @@ export function useNetworkStatus() {
           });
         } else {
           setIsSlow(false);
+          toast.dismiss("network-speed");
         }
       }
     };

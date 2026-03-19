@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, X } from "lucide-react";
 import { toast } from "sonner";
+import { isInstalledPWA } from "@/lib/pwa-utils";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => void;
@@ -16,7 +17,7 @@ export default function InstallPrompt() {
 
   useEffect(() => {
     // Check if app is already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    if (isInstalledPWA()) {
       return;
     }
 

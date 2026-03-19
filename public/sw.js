@@ -44,10 +44,7 @@ const PRECACHE_URLS = [
  */
 function isNetworkOnly(request) {
   const url = new URL(request.url);
-  const { hostname, pathname, searchParams, protocol } = url;
-
-  // WebSockets (Supabase Realtime, etc.)
-  if (protocol === "ws:" || protocol === "wss:") return true;
+  const { hostname, pathname, searchParams } = url;
 
   // External dynamic scripts
   if (hostname === "checkout.razorpay.com") return true;

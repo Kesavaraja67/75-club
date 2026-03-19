@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Share, PlusSquare } from "lucide-react";
+import { isInstalledPWA } from "@/lib/pwa-utils";
 
 export default function IOSInstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
@@ -12,7 +13,7 @@ export default function IOSInstallPrompt() {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as { MSStream: unknown }).MSStream;
     
     // Check if running in browser (not standalone)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone: boolean }).standalone;
+    const isStandalone = isInstalledPWA();
     
     if (isIOS && !isStandalone) {
       // Check if user has dismissed it before

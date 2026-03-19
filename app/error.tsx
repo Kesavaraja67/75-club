@@ -92,15 +92,20 @@ export default function Error({
         </button>
         <button
           onClick={async () => {
-            if ("serviceWorker" in navigator) {
-              const regs = await navigator.serviceWorker.getRegistrations();
-              for (const r of regs) await r.unregister();
+            try {
+              if ("serviceWorker" in navigator) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(regs.map((r) => r.unregister()));
+              }
+              if ("caches" in window) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map((k) => caches.delete(k)));
+              }
+            } catch (err) {
+              console.error("[Cache clear failed]", err);
+            } finally {
+              window.location.reload();
             }
-            if ("caches" in window) {
-              const keys = await caches.keys();
-              for (const k of keys) await caches.delete(k);
-            }
-            window.location.reload();
           }}
           style={{
             background: "#dc2626", // Red for destructive/hard reset

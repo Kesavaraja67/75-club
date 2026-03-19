@@ -21,7 +21,10 @@ export function useAndroidBackButtonLock() {
     if (!isPWA) return;
 
     // Push a dummy state so the first "back" press doesn't exit the app
-    window.history.pushState({ pwaLocked: true }, "");
+    // Only push if we haven't already
+    if (!window.history.state?.pwaLocked) {
+      window.history.pushState({ pwaLocked: true }, "");
+    }
 
     const handlePopState = (e: PopStateEvent) => {
       // If the user pressed back, they popped the dummy state.

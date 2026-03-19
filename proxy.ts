@@ -65,11 +65,11 @@ export async function proxy(request: NextRequest) {
   // anyway — page-level auth checks will handle it.
   try {
     await supabase.auth.getUser()
-  } catch {
-    // Session refresh failed (invalid token, etc.). 
-    // Clear the invalid session so the user is signed out cleanly.
-    await supabase.auth.signOut()
-    // console.error("Auth error in proxy:", error) // Optional: suppress logging
+  } catch (error) {
+    // Only sign out for auth errors, not network timeouts
+    if (error instanceof Error && !error.message.includes('timed out')) {
+      await supabase.auth.signOut()
+    }
   }
 
   return response

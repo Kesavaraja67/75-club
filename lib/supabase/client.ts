@@ -1,33 +1,26 @@
 import { createBrowserClient, type CookieOptions } from '@supabase/ssr'
 import { supabaseFetchWithTimeout } from '@/lib/fetch-with-timeout'
+import { isInstalledPWA } from '@/lib/pwa-utils'
 
 let client: ReturnType<typeof createBrowserClient> | undefined;
-
-function isPWAStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as unknown as { standalone?: boolean }).standalone === true
-  );
-}
 
 export const createClient = () => {
   if (client) return client;
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const options: any = {
+  const options = {
     global: {
       fetch: supabaseFetchWithTimeout,
     },
-  };
+  } as NonNullable<Parameters<typeof createBrowserClient>[2]>;
 
-  if (isPWAStandalone()) {
+  if (isInstalledPWA()) {
     options.cookies = {
       get(name: string) {
         if (typeof window === 'undefined') return '';
         const localVal = window.localStorage.getItem(`sb-${name}`);
         if (localVal) return localVal;
-        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const match = document.cookie.match(new RegExp('(^| )' + escapedName + '=([^;]+)'));
         return match ? match[2] : '';
       },
       set(name: string, value: string, cookieOptions: CookieOptions) {

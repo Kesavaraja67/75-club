@@ -7,10 +7,15 @@ export async function fetchWithTimeout<T>(
   timeoutMs: number = 8000,
   errorMessage: string = "Connection timed out. Please try again."
 ): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
   );
-  return Promise.race([promise, timeout]);
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
 }
 
 /**
