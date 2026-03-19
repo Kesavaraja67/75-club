@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Prevent Next.js from bundling these server-side, which prevents Turbopack from choking on their Node.js specific sub-dependencies like `fflate`
+  serverExternalPackages: ["jspdf", "jspdf-autotable", "fflate"],
   turbopack: {},
   async headers() {
     return [
@@ -25,16 +27,7 @@ const nextConfig: NextConfig = {
         ],
       },
 
-      // ── Next.js static chunks: permanently immutable (hash in filename) ───
-      {
-        source: "/_next/static/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
-      },
+
 
       // ── Security header for all routes (HTML caching is handled by sw.js) ──
       {
