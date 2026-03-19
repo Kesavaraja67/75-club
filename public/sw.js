@@ -11,14 +11,15 @@
  *   - activate → clients.claim + delete only KNOWN old cache versions
  */
 
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const STATIC_CACHE = `static-shell-${CACHE_VERSION}`;
 
 // All known previous cache names — add here when bumping CACHE_VERSION
 const KNOWN_CACHES = [
   "static-shell-v1",
   "static-shell-v2",
-  // v3 is current — not listed here, it will be kept
+  "static-shell-v3",
+  // v4 is current — not listed here, it will be kept
 ];
 
 // One-time cleanup: delete legacy next-pwa/workbox caches on activate
@@ -189,12 +190,15 @@ self.addEventListener("fetch", (event) => {
           request.mode === "navigate" &&
           networkResponse.headers.get("content-type")?.includes("text/html")
         ) {
+          // Clone BEFORE the async queue to prevent "body already used" race condition
+          const responseToCache = networkResponse.clone();
+          
           // Attach cache write to the event lifetime so it completes even if
           // the SW is torn down immediately after respondWith returns.
           event.waitUntil(
             caches
               .open(STATIC_CACHE)
-              .then((cache) => cache.put(request, networkResponse.clone())),
+              .then((cache) => cache.put(request, responseToCache)),
           );
         }
         return networkResponse;
