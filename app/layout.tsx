@@ -112,16 +112,14 @@ export default function RootLayout({
         <Script id="register-sw" strategy="afterInteractive">
           {`
             if ('serviceWorker' in navigator) {
-              window.addEventListener('load', function () {
-                navigator.serviceWorker
-                  .register('/sw.js', { scope: '/' })
-                  .then(function(reg) {
-                    console.log('[SW] Registered:', reg.scope);
-                  })
-                  .catch(function(err) {
-                    console.warn('[SW] Registration failed:', err);
-                  });
-              });
+              navigator.serviceWorker
+                .register('/sw.js', { scope: '/' })
+                .then(function(reg) {
+                  console.log('[SW] Registered:', reg.scope);
+                })
+                .catch(function(err) {
+                  console.warn('[SW] Registration failed:', err);
+                });
             }
           `}
         </Script>

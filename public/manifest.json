@@ -1,7 +1,7 @@
 {
-  "name": "75 Club",
-  "short_name": "75Club",
-  "description": "Smart attendance tracking for students. Plan safe bunks and track your attendance.",
+  "name": "75 Club – Bunk Planner",
+  "short_name": "75 Club",
+  "description": "Track attendance, calculate safe bunks, and never miss the 75% mark.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -11,49 +11,7 @@
   "icons": [
     {
       "src": "/icon-192.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
@@ -62,6 +20,12 @@
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",

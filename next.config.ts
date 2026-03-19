@@ -36,11 +36,12 @@ const nextConfig: NextConfig = {
         ],
       },
 
-      // ── All HTML pages: no-cache (force fresh fetch, SW serves static) ────
+      // ── Security header for all routes (HTML caching is handled by sw.js) ──
       {
         source: "/(.*)",
         headers: [
           {
+            // Prevents MIME-type sniffing attacks
             key: "X-Content-Type-Options",
             value: "nosniff",
           },

@@ -20,8 +20,11 @@ export default function Error({
     // and reconcile with the current SW cache.
     const isHydrationError =
       error.message?.toLowerCase().includes("hydrat") ||
-      error.message?.toLowerCase().includes("minified react error") ||
-      error.digest?.includes("NEXT_NOT_FOUND");
+      error.message?.toLowerCase().includes("minified react error");
+    // NOTE: we intentionally do NOT include NEXT_NOT_FOUND here.
+    // error.digest === "NEXT_NOT_FOUND" means the page called notFound() —
+    // that is a legitimate 404, not a hydration issue. Reloading on it would
+    // create an infinite reload loop on any valid not-found route.
 
     if (isHydrationError) {
       // Small delay so React can flush before we reload

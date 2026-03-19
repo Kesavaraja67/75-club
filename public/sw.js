@@ -1,17 +1,25 @@
 /**
  * 75 Club – Custom Service Worker
  * Strategy:
- *   - NEVER cache: /api/*, /auth/*, /dashboard/*, *.supabase.co/*, /_next/data/*
+ *   - NEVER cache: /api/*, /auth/*, /dashboard/*, *.supabase.co/*,
+ *                  /_next/data/*, App Router RSC payloads (?_rsc / RSC header)
  *   - CACHE-FIRST: /_next/static/*, /icons/*, /app-logo.png, /manifest.json, fonts
- *   - NETWORK-FIRST + offline fallback: everything else
+ *   - NETWORK-FIRST + offline fallback (navigate only): everything else
  *
  * Lifecycle:
  *   - install  → skipWaiting (activate immediately, no "waiting" limbo)
- *   - activate → clients.claim + delete ALL old caches
+ *   - activate → clients.claim + delete only KNOWN old cache versions
  */
 
 const CACHE_VERSION = "v3";
 const STATIC_CACHE = `static-shell-${CACHE_VERSION}`;
+
+// All known previous cache names — add here when bumping CACHE_VERSION
+const KNOWN_CACHES = [
+  "static-shell-v1",
+  "static-shell-v2",
+  // v3 is current — not listed here, it will be kept
+];
 
 /**
  * Files to precache on install — the offline shell.
@@ -27,9 +35,13 @@ const PRECACHE_URLS = [
 
 // ─── Patterns that must NEVER be cached ──────────────────────────────────────
 
-/** Returns true if the request must always go to the network (no caching). */
-function isNetworkOnly(url) {
-  const { hostname, pathname } = new URL(url);
+/**
+ * Returns true if the request must always go to the network (no caching).
+ * Accepts the full Request object so we can inspect headers and query params.
+ */
+function isNetworkOnly(request) {
+  const url = new URL(request.url);
+  const { hostname, pathname, searchParams } = url;
 
   // Supabase API / Auth endpoints
   if (hostname.endsWith(".supabase.co")) return true;
@@ -43,27 +55,36 @@ function isNetworkOnly(url) {
   // Dashboard routes (server-side auth redirect must always hit the network)
   if (pathname.startsWith("/dashboard")) return true;
 
-  // Next.js RSC / data fetching payloads
+  // Next.js Pages Router data fetching payloads
   if (pathname.startsWith("/_next/data/")) return true;
 
-  // Hot-module-replacement chunks in development (shouldn't reach SW but guard anyway)
+  // Next.js App Router RSC requests — detected via query param or request header
+  if (searchParams.has("_rsc")) return true;
+  if (request.headers.get("RSC") === "1") return true;
+
+  // Hot-module-replacement chunks in development
   if (pathname.startsWith("/_next/webpack-hmr")) return true;
 
   return false;
 }
 
-/** Returns true if the asset should be served from cache-first. */
+/**
+ * Returns true if the asset should be served from cache-first.
+ * Only known immutable/shell paths — NOT a broad extension regex.
+ */
 function isCacheFirst(url) {
   const { hostname, pathname } = new URL(url);
 
-  // Next.js build hashes — immutable
+  // Next.js build hashes — immutable (filename contains build hash)
   if (pathname.startsWith("/_next/static/")) return true;
 
-  // Our public icons / logo / manifest
+  // Specific known shell assets (exact paths, not extension glob)
   if (pathname === "/app-logo.png") return true;
   if (pathname === "/manifest.json") return true;
+  if (pathname === "/icon-192.png") return true;
+  if (pathname === "/icon-512.png") return true;
+  if (pathname === "/favicon.ico") return true;
   if (pathname.startsWith("/icons/")) return true;
-  if (/\.(png|jpg|jpeg|webp|gif|svg|ico)$/.test(pathname)) return true;
 
   // Google Fonts — external, versioned
   if (hostname === "fonts.gstatic.com") return true;
@@ -88,16 +109,11 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     Promise.all([
-      // Delete ALL old caches (clean slate on every deploy)
-      caches
-        .keys()
-        .then((keys) =>
-          Promise.all(
-            keys
-              .filter((key) => key !== STATIC_CACHE)
-              .map((key) => caches.delete(key)),
-          ),
-        ),
+      // Delete only KNOWN old cache versions (explicit list, not wildcard).
+      // This avoids purging caches belonging to other tools or extensions,
+      // and prevents a race where a controlled page requests a chunk that
+      // was just deleted before it could reload.
+      Promise.all(KNOWN_CACHES.map((name) => caches.delete(name))),
       // Take control of all open tabs immediately
       self.clients.claim(),
     ]),
@@ -118,12 +134,12 @@ self.addEventListener("fetch", (event) => {
   if (!url.startsWith("http")) return;
 
   // ── 1. Network-only (never serve from cache) ──────────────────────────────
-  if (isNetworkOnly(url)) {
+  if (isNetworkOnly(request)) {
     event.respondWith(fetch(request));
     return;
   }
 
-  // ── 2. Cache-first (static assets with immutable hashes) ─────────────────
+  // ── 2. Cache-first (known immutable shell assets) ─────────────────────────
   if (isCacheFirst(url)) {
     event.respondWith(
       caches.open(STATIC_CACHE).then(async (cache) => {
@@ -146,18 +162,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── 3. Network-first with offline fallback (HTML pages, etc.) ────────────
+  // ── 3. Network-first with offline fallback (HTML navigations, etc.) ───────
   event.respondWith(
     fetch(request)
       .then((networkResponse) => {
-        // Only cache successful HTML responses (not JSON, not errors)
+        // Only cache successful HTML document navigations (not JSON, not errors)
         if (
           networkResponse.ok &&
+          request.mode === "navigate" &&
           networkResponse.headers.get("content-type")?.includes("text/html")
         ) {
-          caches
-            .open(STATIC_CACHE)
-            .then((cache) => cache.put(request, networkResponse.clone()));
+          // Attach cache write to the event lifetime so it completes even if
+          // the SW is torn down immediately after respondWith returns.
+          event.waitUntil(
+            caches
+              .open(STATIC_CACHE)
+              .then((cache) => cache.put(request, networkResponse.clone())),
+          );
         }
         return networkResponse;
       })
@@ -166,18 +187,18 @@ self.addEventListener("fetch", (event) => {
         const cached = await caches.match(request);
         if (cached) return cached;
 
-        // Nothing in cache — show offline page
-        const offlinePage = await caches.match("/offline.html");
-        if (offlinePage) return offlinePage;
+        // Only show the offline page for full document navigations.
+        // RSC subresource requests (mode "cors") must NOT receive HTML.
+        if (request.mode === "navigate") {
+          const offlinePage = await caches.match("/offline.html");
+          if (offlinePage) return offlinePage;
+        }
 
-        // Absolute last resort
-        return new Response(
-          "<!DOCTYPE html><html><body><h1>You are offline</h1></body></html>",
-          {
-            status: 503,
-            headers: { "Content-Type": "text/html" },
-          },
-        );
+        // Absolute last resort for non-navigate requests
+        return new Response("Offline", {
+          status: 503,
+          headers: { "Content-Type": "text/plain" },
+        });
       }),
   );
 });
