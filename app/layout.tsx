@@ -6,6 +6,7 @@ import Navbar from "@/components/shared/Navbar";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
 import IOSInstallPrompt from "@/components/pwa/IOSInstallPrompt";
 import PWALoadingGuard from "@/components/pwa/PWALoadingGuard";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -124,6 +125,9 @@ export default function RootLayout({
             }
           `}
         </Script>
+
+        {/* Vercel Analytics */}
+        <Analytics />
       </body>
     </html>
   );

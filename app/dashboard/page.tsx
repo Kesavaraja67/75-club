@@ -126,7 +126,7 @@ export default function DashboardPage() {
     } catch (error: unknown) {
       console.error("Error fetching subjects:", error);
       
-      if (error instanceof Error && error.message === "TIMEOUT") {
+      if (error instanceof Error && error.message.toLowerCase().includes("time")) {
         setIsTimeout(true);
         toast.error("Connection timed out. Please try again.");
       } else {
