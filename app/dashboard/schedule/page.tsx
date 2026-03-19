@@ -71,7 +71,8 @@ export default function SchedulePage() {
   const supabase = useMemo(() => createClient(), []);
 
   const checkAccess = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     
     if (!user) {
       router.push("/login");
@@ -80,7 +81,6 @@ export default function SchedulePage() {
 
     const { isProUser: isPro } = await fetchSubscriptionStatus(user.id);
     setIsProUser(isPro);
-
     if (isPro) {
       await loadData(user.id);
     }
@@ -89,7 +89,10 @@ export default function SchedulePage() {
   };
 
   useEffect(() => {
-    checkAccess();
+    checkAccess().catch(err => {
+      console.error("Schedule access check failed:", err);
+      setLoading(false);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

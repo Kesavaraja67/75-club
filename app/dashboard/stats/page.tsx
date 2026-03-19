@@ -33,7 +33,8 @@ export default function StatsPage() {
         setSubscriptionStatus(status);
         
         // Then fetch subjects
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
         
         if (!user) {
           setLoading(false);
