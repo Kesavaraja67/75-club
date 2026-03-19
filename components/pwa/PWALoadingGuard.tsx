@@ -30,9 +30,8 @@ export default function PWALoadingGuard({
   const { isOnline } = useNetworkStatus(); // Initialize global network monitoring
   useAndroidBackButtonLock(); // Initialize global hardware back button lock
   
-  // Initialize ready = true for normal browser tabs (no splash needed)
-  // Initialize ready = false only in PWA standalone mode
-  const [ready, setReady] = useState<boolean>(() => !isInstalledPWA());
+  // Initialize ready = false (client-hidden) to avoid hydration mismatch
+  const [ready, setReady] = useState<boolean>(false);
   const resolvedRef = useRef(false);
 
   const resolve = () => {
@@ -42,12 +41,16 @@ export default function PWALoadingGuard({
   };
 
   useEffect(() => {
-    // If already ready (non-PWA), nothing to do
     if (ready) return;
+
+    if (!isInstalledPWA()) {
+      resolve();
+      return;
+    }
 
     if (!isOnline) {
       resolve();
-      return;
+      return; // Will re-run if isOnline changes because it's in the dependency array
     }
 
     const supabase = createClient();
@@ -91,8 +94,7 @@ export default function PWALoadingGuard({
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ready, isOnline]);
 
   if (!ready) {
     return <PWASplashScreen />;

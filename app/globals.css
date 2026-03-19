@@ -213,6 +213,7 @@ button:active {
   }
   body {
     @apply bg-background text-foreground;
+
     padding-top: env(titlebar-area-height, 0);
     padding-bottom: env(safe-area-inset-bottom);
     min-height: 100dvh;

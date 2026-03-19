@@ -37,7 +37,9 @@ export const createClient = () => {
       remove(name: string, cookieOptions: CookieOptions) {
         if (typeof window === 'undefined') return;
         window.localStorage.removeItem(`sb-${name}`);
-        document.cookie = `${name}=; path=${cookieOptions.path || '/'}; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+        let cookieString = `${name}=; path=${cookieOptions.path || '/'}; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0;`;
+        if (cookieOptions.domain) cookieString += ` domain=${cookieOptions.domain};`;
+        document.cookie = cookieString;
       },
     };
   }

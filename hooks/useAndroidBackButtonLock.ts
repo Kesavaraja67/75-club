@@ -20,6 +20,8 @@ export function useAndroidBackButtonLock() {
 
     if (!isPWA) return;
 
+    const launchUrl = window.location.pathname + window.location.search + window.location.hash;
+
     // Push a dummy state so the first "back" press doesn't exit the app
     // Only push if we haven't already
     if (!window.history.state?.pwaLocked) {
@@ -27,10 +29,15 @@ export function useAndroidBackButtonLock() {
     }
 
     const handlePopState = (e: PopStateEvent) => {
+      const currentUrl = window.location.pathname + window.location.search + window.location.hash;
+
       // If the user pressed back, they popped the dummy state.
       // We block it by pushing the state right back and warning them.
-      if (!e.state || !e.state.pwaLocked) {
-        window.history.pushState({ pwaLocked: true }, "");
+      if (currentUrl === launchUrl && (!e.state || !e.state.pwaLocked)) {
+        window.history.pushState(
+          { ...(window.history.state ?? {}), pwaLocked: true },
+          ""
+        );
         toast("App navigation locked", {
           description: "Use the Android Home button to exit the app, or app menus to navigate.",
           id: "back-button-warning",

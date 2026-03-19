@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { fetchSubscriptionStatus, UPGRADE_MESSAGES, SubscriptionStatus } from "@/lib/subscription";
 import UpgradeDialog from "@/components/subscription/UpgradeDialog";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { SectionErrorBoundary } from "@/components/dashboard/SectionErrorBoundary";
 import dynamic from "next/dynamic";
 import type { ScannedSubject } from "@/components/scan/ResultsDialog";
 
@@ -25,8 +26,20 @@ const ScanUploader = dynamic(() => import("@/components/scan/ScanUploader"), {
   ),
 });
 
-const ResultsDialog = dynamic(() => import("@/components/scan/ResultsDialog"), { ssr: false });
-const ManualSubjectDialog = dynamic(() => import("@/components/dashboard/ManualSubjectDialog"), { ssr: false });
+const loadingFallback = () => (
+  <div className="flex justify-center p-8">
+    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+  </div>
+);
+
+const ResultsDialog = dynamic(() => import("@/components/scan/ResultsDialog"), { 
+  ssr: false,
+  loading: loadingFallback,
+});
+const ManualSubjectDialog = dynamic(() => import("@/components/dashboard/ManualSubjectDialog"), { 
+  ssr: false,
+  loading: loadingFallback,
+});
 
 export default function DashboardPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -466,7 +479,9 @@ export default function DashboardPage() {
               <span className="text-3xl">📸</span> Upload Screenshots
             </DialogTitle>
           </DialogHeader>
-          <ScanUploader onScanComplete={handleScanComplete} onCancel={() => setIsScanOpen(false)} />
+          <SectionErrorBoundary sectionName="AI Scanner">
+            <ScanUploader onScanComplete={handleScanComplete} onCancel={() => setIsScanOpen(false)} />
+          </SectionErrorBoundary>
         </DialogContent>
       </Dialog>
 

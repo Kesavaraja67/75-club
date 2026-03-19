@@ -20,15 +20,33 @@ export default function LandingPage() {
   const router = useRouter();
 
   useEffect(() => {
+    let isMounted = true;
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setIsAuthenticated(true);
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        if (!isMounted) return;
+
+        if (!user) {
+          setIsAuthenticated(false);
+          setIsProUser(false);
+          return;
+        }
+
         const subStatus = await fetchSubscriptionStatus(user.id);
+        if (!isMounted) return;
+        setIsAuthenticated(true);
         setIsProUser(subStatus.isProUser);
+      } catch {
+        if (!isMounted) return;
+        setIsAuthenticated(false);
+        setIsProUser(false);
       }
     };
     checkUser();
+    return () => {
+      isMounted = false;
+    };
   }, [supabase]);
 
   return (
@@ -331,11 +349,11 @@ export default function LandingPage() {
                   size="lg" 
                   className={`w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black transition-all ${
                     isProUser 
-                      ? "bg-gray-100 text-gray-500 border-gray-400 cursor-default hover:bg-gray-100 neo-shadow-none" 
+                      ? "bg-[#FFE66D] text-black hover:bg-[#FFE66D]/90 cursor-pointer" 
                       : "bg-white text-[#FF6B35] hover:bg-white/90"
                   }`}
                 >
-                  {isProUser ? "Already a Pro User" : "Upgrade to Pro"}
+                  {isProUser ? "Go to Dashboard" : "Upgrade to Pro"}
                 </Button>
                 <p className="text-center text-sm mt-3 opacity-90">
                   Secure payment via Razorpay • One-time payment

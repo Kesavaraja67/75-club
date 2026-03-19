@@ -3,27 +3,25 @@
  * Prevents infinite loading spinners on dropped connections or Vercel cold starts.
  */
 export async function fetchWithTimeout<T>(
-  promise: Promise<T>,
+  operation: (signal: AbortSignal) => Promise<T>,
   timeoutMs: number = 8000,
   errorMessage: string = "Connection timed out. Please try again."
 ): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout>;
-  const timeout = new Promise<never>((_, reject) =>
-    timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
-  );
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(new Error(errorMessage)), timeoutMs);
   try {
-    return await Promise.race([promise, timeout]);
+    return await operation(controller.signal);
   } finally {
-    clearTimeout(timeoutId!);
+    clearTimeout(timeoutId);
   }
 }
 
 /**
  * Global fetch interceptor specifically injected into Supabase clients.
  */
-export const supabaseFetchWithTimeout = (...args: Parameters<typeof fetch>) => {
+export const supabaseFetchWithTimeout: typeof fetch = (input, init) => {
   return fetchWithTimeout(
-    fetch(...args),
+    (signal) => fetch(input, { ...init, signal }),
     8000,
     "Data connection timed out. Please check your connection and try again."
   );
