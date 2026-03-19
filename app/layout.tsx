@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import Navbar from "@/components/shared/Navbar";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
 import IOSInstallPrompt from "@/components/pwa/IOSInstallPrompt";
+import PWALoadingGuard from "@/components/pwa/PWALoadingGuard";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,8 +20,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "75 Club | AI Attendance Planner & Bunk Manager",
-  description: "Stop worrying about attendance. 75 Club helps you track classes, scan timetables with AI, and calculate exactly how many bunks you have left. Stay safe above 75%.",
-  keywords: ["75 club", "attendance tracker", "bunk planner", "college attendance", "bunk calculator", "75 percent attendance"],
+  description:
+    "Stop worrying about attendance. 75 Club helps you track classes, scan timetables with AI, and calculate exactly how many bunks you have left. Stay safe above 75%.",
+  keywords: [
+    "75 club",
+    "attendance tracker",
+    "bunk planner",
+    "college attendance",
+    "bunk calculator",
+    "75 percent attendance",
+  ],
   authors: [{ name: "75 Club Team" }],
   openGraph: {
     title: "75 Club | Your AI Bunk Buddy",
@@ -50,7 +59,6 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "75 Club",
-    // startUpImage: [], // Optional: Add startup images if available later
   },
 };
 
@@ -67,22 +75,56 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* iOS PWA — explicit meta fallbacks for older iOS versions */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="75 Club" />
+        {/* Prevent iOS Safari from auto-detecting phone numbers */}
+        <meta name="format-detection" content="telephone=no" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Navbar />
-        {children}
-        <Toaster />
-        
-        {/* PWA Install Prompts */}
-        <InstallPrompt />
-        <IOSInstallPrompt />
-        
+        {/* Auth loading gate — only activates in PWA standalone mode */}
+        <PWALoadingGuard>
+          <Navbar />
+          {children}
+          <Toaster />
+
+          {/* PWA Install Prompts */}
+          <InstallPrompt />
+          <IOSInstallPrompt />
+        </PWALoadingGuard>
+
         {/* Razorpay Script */}
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"
           strategy="lazyOnload"
         />
+
+        {/*
+         * Register our custom service worker.
+         * Runs after hydration (afterInteractive) so it doesn't block LCP.
+         * The SW file is served with Cache-Control: no-cache so every deploy
+         * gets the latest version.
+         */}
+        <Script id="register-sw" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function () {
+                navigator.serviceWorker
+                  .register('/sw.js', { scope: '/' })
+                  .then(function(reg) {
+                    console.log('[SW] Registered:', reg.scope);
+                  })
+                  .catch(function(err) {
+                    console.warn('[SW] Registration failed:', err);
+                  });
+              });
+            }
+          `}
+        </Script>
       </body>
     </html>
   );
