@@ -10,28 +10,37 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# testing & coverage
 /coverage
+/.vitest-cache
 
 # next.js
 /.next/
 /out/
 
-# production
+# production build
 /build
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
 
-# debug
+# debug / temp logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+build-log.txt
+*.log
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — .env.example is intentionally tracked
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
 
 # vercel
 .vercel
@@ -45,3 +54,25 @@ public/sw.js.map
 public/workbox-*.js
 public/workbox-*.js.map
 public/worker-*.js
+
+# editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# python / mypy (from AI scanning features)
+.mypy_cache/
+__pycache__/
+*.pyc
+*.pyo
+.python-version
+venv/
+.venv/
+
+# supabase local dev
+.supabase/
+
+# OS generated
+ehthumbs.db
+Desktop.ini
