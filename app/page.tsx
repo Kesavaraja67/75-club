@@ -25,7 +25,22 @@ export default function LandingPage() {
     const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
+        
+        // Handle definite errors vs transport timeouts
+        if (error) {
+          console.error("[Auth] getUser error:", error);
+          if (error.status === 401 || error.status === 403) {
+            if (isMounted) {
+              setIsAuthenticated(false);
+              setIsProUser(false);
+            }
+          }
+          // On 5xx or network timeout, we do NOT set false. 
+          // We preserve the indeterminate state (Loading...) 
+          // to prevent kicking valid users to login.
+          return;
+        }
+
         if (!isMounted) return;
 
         if (!user) {
@@ -38,10 +53,9 @@ export default function LandingPage() {
         if (!isMounted) return;
         setIsAuthenticated(true);
         setIsProUser(subStatus.isProUser);
-      } catch {
-        if (!isMounted) return;
-        setIsAuthenticated(false);
-        setIsProUser(false);
+      } catch (err) {
+        console.error("[Auth] Transport exception:", err);
+        // Do not flip flags on transport exceptions (timeouts)
       } finally {
         if (isMounted) setAuthResolved(true);
       }
@@ -209,15 +223,24 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <Link href={!authResolved ? "#" : isAuthenticated ? "/dashboard" : "/login"}>
+            {authResolved ? (
+              <Link href={isAuthenticated ? "/dashboard" : "/login"}>
+                <Button 
+                  size="lg" 
+                  className="h-14 px-10 text-lg font-display font-bold rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
+                >
+                  Start Tracking Free 🎉
+                </Button>
+              </Link>
+            ) : (
               <Button 
                 size="lg" 
-                disabled={!authResolved}
-                className="h-14 px-10 text-lg font-display font-bold rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
+                disabled
+                className="h-14 px-10 text-lg font-display font-bold rounded-2xl neo-shadow-lg opacity-70"
               >
-                {authResolved ? "Start Tracking Free 🎉" : "Loading..."}
+                Loading...
               </Button>
-            </Link>
+            )}
           </div>
         </section>
 
@@ -307,16 +330,26 @@ export default function LandingPage() {
                     <span>Email support</span>
                   </li>
                 </ul>
-                <Link href={!authResolved ? "#" : isAuthenticated ? "/dashboard" : "/login"}>
+                {authResolved ? (
+                  <Link href={isAuthenticated ? "/dashboard" : "/login"}>
+                    <Button 
+                      variant="outline" 
+                      size="lg" 
+                      className="w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black"
+                    >
+                      Start Free
+                    </Button>
+                  </Link>
+                ) : (
                   <Button 
                     variant="outline" 
                     size="lg" 
-                    disabled={!authResolved}
-                    className="w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black"
+                    disabled
+                    className="w-full font-display font-bold text-lg h-14 rounded-2xl border-3 border-black opacity-70"
                   >
-                    {authResolved ? "Start Free" : "Loading..."}
+                    Loading...
                   </Button>
-                </Link>
+                )}
               </div>
 
               {/* Pro Plan */}
@@ -393,15 +426,24 @@ export default function LandingPage() {
               <p className="text-xl text-muted-foreground mb-8 max-w-xl mx-auto">
                 Join 10,000+ students who never worry about attendance anymore.
               </p>
-             <Link href={!authResolved ? "#" : isAuthenticated ? "/dashboard" : "/login"}>
+             {authResolved ? (
+                <Link href={isAuthenticated ? "/dashboard" : "/login"}>
+                  <Button 
+                    size="lg" 
+                    className="h-16 px-12 text-lg font-display font-black rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all bg-[#FF6B35] text-white border-3 border-black"
+                  >
+                     Start Free Now →
+                  </Button>
+                </Link>
+              ) : (
                 <Button 
                   size="lg" 
-                  disabled={!authResolved}
-                  className="h-16 px-12 text-lg font-display font-black rounded-2xl neo-shadow-lg hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all bg-[#FF6B35] text-white border-3 border-black"
+                  disabled
+                  className="h-16 px-12 text-lg font-display font-black rounded-2xl neo-shadow-lg bg-[#FF6B35]/50 text-white border-3 border-black/50"
                 >
-                  {authResolved ? "Start Free Now →" : "Loading..."}
+                  Loading...
                 </Button>
-              </Link>
+              )}
               <p className="text-sm text-muted-foreground mt-4">
                 No credit card required • Setup in 30 seconds • Cancel anytime
               </p>

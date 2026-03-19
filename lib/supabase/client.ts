@@ -21,10 +21,23 @@ export const createClient = () => {
         const storageKey = `sb-${name}`;
         const localVal = window.localStorage.getItem(storageKey);
         
+        // 1. Check for explicit revocation marker (set by proxy on 401/403)
+        // If the server explicitly cleared the cookie, we should not revive it from localStorage
+        const revokedKey = `${storageKey}-revoked`;
+        const isRevoked = document.cookie.includes(`${revokedKey}=true`);
+        
+        if (isRevoked) {
+          console.warn(`[SupabaseClient] Session ${name} is marked as revoked. Clearing storage.`);
+          window.localStorage.removeItem(storageKey);
+          return '';
+        }
+
+        // 2. Standard cookie check
         const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const match = document.cookie.match(new RegExp('(^| )' + escapedName + '=([^;]+)'));
         const cookieVal = match ? match[2] : null;
 
+        // 3. Sync cookie to localStorage if they differ
         if (cookieVal && cookieVal !== localVal) {
           window.localStorage.setItem(storageKey, cookieVal);
           return cookieVal;

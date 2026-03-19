@@ -56,7 +56,7 @@ export default function InstallPrompt() {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 z-50 md:max-w-sm animate-in slide-in-from-bottom-5 duration-500">
+    <div className="fixed safe-bottom-offset left-4 right-4 md:left-auto md:right-4 z-50 md:max-w-sm animate-in slide-in-from-bottom-5 duration-500">
       <div className="bg-black text-white p-4 rounded-xl shadow-2xl border-2 border-white/20 flex items-center justify-between gap-4">
         <div className="flex-1">
           <h3 className="font-display font-bold text-lg leading-tight">Install App</h3>

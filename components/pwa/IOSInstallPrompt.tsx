@@ -38,7 +38,7 @@ export default function IOSInstallPrompt() {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 animate-in slide-in-from-bottom-10 duration-500">
+    <div className="fixed safe-bottom-offset left-0 right-0 z-50 p-4 animate-in slide-in-from-bottom-10 duration-500">
       <div className="bg-white/90 backdrop-blur-md border-t-2 border-black/10 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] rounded-t-2xl p-6 max-w-md mx-auto relative">
         <Button 
           onClick={handleDismiss} 
