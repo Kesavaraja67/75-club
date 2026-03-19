@@ -37,13 +37,25 @@ export async function POST(request: Request) {
     }
 
     // 3. Signature Verification (CRITICAL)
-    const secret = process.env.RAZORPAY_KEY_SECRET!;
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    if (!secret) {
+      console.error("[Verify] Missing RAZORPAY_KEY_SECRET");
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+
+    // Validate signature format (64 hex characters)
+    if (!/^[a-f0-9]{64}$/i.test(razorpay_signature)) {
+      console.error("[Verify] Invalid signature format");
+      return NextResponse.json({ error: "Invalid signature format" }, { status: 400 });
+    }
+
     const body = `${razorpay_order_id}|${razorpay_payment_id}`;
     const expectedSignature = crypto
       .createHmac("sha256", secret)
       .update(body)
       .digest("hex");
 
+    // Use timing-safe comparison to prevent timing attacks
     const isValid = crypto.timingSafeEqual(
       Buffer.from(expectedSignature, "hex"),
       Buffer.from(razorpay_signature, "hex")

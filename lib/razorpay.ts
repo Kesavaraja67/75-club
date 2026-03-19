@@ -1,26 +1,22 @@
 import Razorpay from "razorpay";
 
 /**
- * @file lib/razorpay.ts
- * @description Razorpay configuration and utility functions for payment processing.
- * Deferring initialization to runtime to avoid build-time environment checks.
+ * Lazy initialization for Razorpay client.
+ * This prevents build-time environment variable checks from failing.
  */
-
 let razorpayInstance: Razorpay | null = null;
 
-/**
- * Lazy initializer for the Razorpay server-side instance.
- */
 export function getRazorpay(): Razorpay {
   if (razorpayInstance) return razorpayInstance;
 
   const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-  if (!keyId || !keySecret || !webhookSecret) {
+  // Narrow validation to fields needed for order creation/clients
+  if (!keyId || !keySecret) {
+    console.error("Missing Razorpay configuration (NEXT_PUBLIC_RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET)");
     throw new Error(
-      "Missing Razorpay configuration (NEXT_PUBLIC_RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, or RAZORPAY_WEBHOOK_SECRET). " +
+      "Missing Razorpay configuration keyId and keySecret. " +
       "These must be set for payment functionality to work."
     );
   }
@@ -34,24 +30,22 @@ export function getRazorpay(): Razorpay {
 }
 
 /**
- * Payment configuration constants.
+ * Utility to validate price strictly to 249 for the semester plan.
+ * Prevents client-side price manipulation.
  */
-export const PAYMENT_CONFIG = {
-  PRO_SEMESTER_PRICE: 249,
-  CURRENCY: "INR",
-  RECEIPT_PREFIX: "order_",
-} as const;
-
-/**
- * Generates a unique receipt ID for orders.
- */
-export function generateReceiptId(): string {
-  return `${PAYMENT_CONFIG.RECEIPT_PREFIX}${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+export function validatePrice(amountInPaise: number) {
+  const EXPECTED_API_PRICE = 24900; // ₹249.00
+  return amountInPaise === EXPECTED_API_PRICE;
 }
 
 /**
- * Converts an amount in Rupees to Paise.
+ * Helper to generate order prefill notes
  */
-export function rupeesToPaise(amount: number): number {
-  return Math.round(amount * 100);
+export function generateOrderNotes(userId: string, planType: string = 'semester') {
+  return {
+    userId: userId,
+    planType: planType,
+    app: "75-club",
+    version: "1.0.0"
+  };
 }

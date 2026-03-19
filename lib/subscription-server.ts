@@ -1,43 +1,47 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { SubscriptionStatus } from "@/lib/subscription";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * @file lib/subscription-server.ts
- * @description Server-side subscription utilities using the SERVICE ROLE.
- * Use this for webhooks and verification routes where RLS might be restrictive.
+ * Lazy initialization for the Supabase service client.
+ * This client bypasses Row Level Security (RLS) handles sensitive updates.
  */
+let serviceClient: SupabaseClient | null = null;
 
-let serviceClientInstance: SupabaseClient | null = null;
-
-/**
- * Lazy initializer for the Supabase Service Client.
- * This prevents build-time failures if the SERVICE_ROLE_KEY is missing during module evaluation.
- */
-function getServiceClient(): SupabaseClient {
-  if (serviceClientInstance) return serviceClientInstance;
+function getServiceClient() {
+  if (serviceClient) return serviceClient;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    throw new Error(
-      "Missing critical Supabase configuration (NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY). " +
-      "This is required for server-side subscription management."
-    );
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for server-side subscription management");
   }
 
-  serviceClientInstance = createClient(url, key, {
+  serviceClient = createClient(url, key, {
     auth: {
       autoRefreshToken: false,
-      persistSession: false
-    }
+      persistSession: false,
+    },
   });
 
-  return serviceClientInstance;
+  return serviceClient;
+}
+
+export type SubscriptionTier = 'free' | 'pro' | 'expired';
+
+export interface SubscriptionStatus {
+  tier: SubscriptionTier;
+  isProUser: boolean;
+  subjectLimit: number;
+  canUseAIScan: boolean;
+  canUseCalendar: boolean;
+  canUseAIBuddy: boolean;
+  canExportData: boolean;
+  expiresAt: string | null;
 }
 
 /**
- * Get subscription status for any user (server-side only)
+ * Server-only function to check subscription status with service-role permissions.
+ * Useful for webhooks and API routes.
  */
 export async function getServerSubscriptionStatus(userId: string): Promise<SubscriptionStatus> {
   const client = getServiceClient();
@@ -45,9 +49,15 @@ export async function getServerSubscriptionStatus(userId: string): Promise<Subsc
     .from('subscriptions')
     .select('plan_type, status, current_period_end')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  // Distinguish between true query errors and "not found"
+  if (error) {
+    console.error(`[SubscriptionServer] Query error for user ${userId}:`, error);
+    throw new Error(`Failed to fetch subscription status: ${error.message}`);
+  }
+
+  if (!data) {
     return {
       tier: 'free',
       isProUser: false,
@@ -60,39 +70,25 @@ export async function getServerSubscriptionStatus(userId: string): Promise<Subsc
     };
   }
 
-  const isActive = 
-    data.status === 'active' && 
-    data.plan_type === 'pro' &&
-    (data.current_period_end === null || 
-     new Date(data.current_period_end) > new Date());
-
-  if (!isActive) {
-    return {
-      tier: 'free',
-      isProUser: false,
-      subjectLimit: 4,
-      canUseAIScan: false,
-      canUseCalendar: false,
-      canUseAIBuddy: false,
-      canExportData: false,
-      expiresAt: null
-    };
-  }
+  const isPro = data.plan_type === 'pro' && data.status === 'active';
+  const expiresAt = data.current_period_end;
+  const isExpired = expiresAt && new Date(expiresAt) < new Date();
 
   return {
-    tier: 'pro',
-    isProUser: true,
-    subjectLimit: Number.MAX_SAFE_INTEGER,
-    canUseAIScan: true,
-    canUseCalendar: true,
-    canUseAIBuddy: true,
-    canExportData: true,
-    expiresAt: data.current_period_end ? new Date(data.current_period_end) : null
+    tier: isPro ? (isExpired ? 'expired' : 'pro') : 'free',
+    isProUser: isPro && !isExpired,
+    subjectLimit: isPro ? 20 : 4,
+    canUseAIScan: isPro,
+    canUseCalendar: isPro,
+    canUseAIBuddy: isPro,
+    canExportData: isPro,
+    expiresAt: expiresAt
   };
 }
 
 /**
- * Activates or extends a subscription (Server-side only)
+ * Activates or extends a Pro subscription for a user.
+ * Idempotent: Subsequent calls with the SAME paymentId will result in NO change.
  */
 export async function activateProSubscription(
   userId: string, 
@@ -101,23 +97,32 @@ export async function activateProSubscription(
 ) {
   const client = getServiceClient();
 
-  // 1. Calculate new end date (180 days from now or from existing end date)
-  const { data: existing } = await client
+  // 1. FETCH CURRENT SUBSCRIPTION (to handle duration extension)
+  const { data: existing, error: fetchError } = await client
     .from('subscriptions')
-    .select('current_period_end')
+    .select('current_period_end, razorpay_payment_id')
     .eq('user_id', userId)
     .maybeSingle();
 
-  const now = new Date();
-  const baseDate = (existing?.current_period_end && new Date(existing.current_period_end) > now)
-    ? new Date(existing.current_period_end)
-    : now;
+  if (fetchError) {
+    throw new Error(`Activation failed during lookup: ${fetchError.message}`);
+  }
 
+  // 2. IDEMPOTENCY CHECK
+  if (existing?.razorpay_payment_id === paymentId) {
+    console.log(`[SubscriptionServer] Payment ${paymentId} already processed for user ${userId}. Skipping.`);
+    return;
+  }
+
+  // 3. CALCULATE END DATE
+  const now = new Date();
+  const currentEnd = existing?.current_period_end ? new Date(existing.current_period_end) : null;
+  const baseDate = (currentEnd && currentEnd > now) ? currentEnd : now;
   const newEndDate = new Date(baseDate);
   newEndDate.setDate(newEndDate.getDate() + 180);
 
-  // 2. Performance atomic upsert
-  const { error } = await client
+  // 4. ATOMIC UPSERT
+  const { error: upsertError } = await client
     .from('subscriptions')
     .upsert({
       user_id: userId,
@@ -130,7 +135,10 @@ export async function activateProSubscription(
       updated_at: now.toISOString()
     }, { onConflict: 'user_id' });
 
-  if (error) throw error;
+  if (upsertError) {
+    console.error(`[SubscriptionServer] Upsert error for user ${userId}:`, upsertError);
+    throw new Error(`Failed to update subscription: ${upsertError.message}`);
+  }
 
-  return { success: true, expiresAt: newEndDate };
+  console.log(`[SubscriptionServer] Activated Pro for user ${userId} via ${method}. New expiry: ${newEndDate.toISOString()}`);
 }

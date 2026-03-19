@@ -6,12 +6,19 @@ import { activateProSubscription } from "@/lib/subscription-server";
 export async function POST(request: Request) {
   try {
     const rawBody = await request.text();
-    const signature = request.headers.get("x-razorpay-signature");
+    const signature = request.headers.get("x-razorpay-signature") || "";
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
     // 1. Verify Webhook Signature (CRITICAL)
-    if (!signature || !secret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!secret) {
+      console.error("[Webhook] Missing RAZORPAY_WEBHOOK_SECRET");
+      return NextResponse.json({ error: "Configuration error" }, { status: 500 });
+    }
+
+    // Validate signature format (at least 64 hex characters)
+    if (!/^[a-f0-9]{64,}$/i.test(signature)) {
+      console.error("[Webhook] Malformed signature header");
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     const expectedSignature = crypto
@@ -78,13 +85,25 @@ export async function POST(request: Request) {
           .eq("razorpay_order_id", razorpayOrderId);
 
         // d. Activate Subscription
-        await activateProSubscription(order.user_id, razorpayPaymentId, 'webhook');
-        console.log(`[Webhook] Fulfilled order ${razorpayOrderId} for user ${order.user_id}`);
+        try {
+          await activateProSubscription(order.user_id, razorpayPaymentId, 'webhook');
+          console.log(`[Webhook] Fulfilled order ${razorpayOrderId} for user ${order.user_id}`);
+        } catch (activationError) {
+          // Order is already marked paid; log for manual intervention but return 200
+          console.error(`[Webhook] Activation failed for ${razorpayOrderId}:`, activationError);
+          
+          await serviceClient
+            .from("payment_orders")
+            .update({ failure_reason: `Activation error: ${activationError instanceof Error ? activationError.message : 'Unknown'}` })
+            .eq("razorpay_order_id", razorpayOrderId);
+        }
         break;
       }
 
       case "payment.failed": {
         const payment = payload.payment.entity;
+        // Mark as failed in DB if not already processed
+        // We check for webhook_received_at to maintain consistency
         await serviceClient
           .from("payment_orders")
           .update({
@@ -92,24 +111,43 @@ export async function POST(request: Request) {
             failure_reason: payment.error_description || "Payment failed",
             webhook_received_at: new Date().toISOString()
           })
-          .eq("razorpay_order_id", payment.order_id);
+          .eq("razorpay_order_id", payment.order_id)
+          .is("webhook_received_at", null); 
+        console.log(`[Webhook] Payment failed: ${payment.order_id}`);
         break;
       }
 
       case "refund.created": {
-        const payment = payload.payment.entity;
+        const refund = payload.refund.entity;
+        const razorpayPaymentId = refund.payment_id;
+
+        // Fetch order by payment_id
         const { data: order } = await serviceClient
           .from("payment_orders")
-          .select("user_id")
-          .eq("razorpay_order_id", payment.order_id)
+          .select("user_id, razorpay_order_id, razorpay_payment_id")
+          .eq("razorpay_payment_id", razorpayPaymentId)
           .maybeSingle();
 
         if (order) {
-          // Deactivate subscription
+          // Deactivate subscription (idempotent since cancelled->cancelled is a no-op if status neq checked)
           await serviceClient
             .from("subscriptions")
-            .update({ status: "cancelled", updated_at: new Date().toISOString() })
-            .eq("user_id", order.user_id);
+            .update({ 
+               status: "cancelled", 
+               updated_at: new Date().toISOString() 
+            })
+            .eq("user_id", order.user_id)
+            .neq("status", "cancelled");
+
+          // Update refund tracking
+          await serviceClient
+            .from("payment_orders")
+            .update({ 
+               status: "refunded",
+               razorpay_refund_id: refund.id 
+            })
+            .eq("razorpay_payment_id", razorpayPaymentId);
+            
           console.log(`[Webhook] Refund handled for user ${order.user_id}`);
         }
         break;

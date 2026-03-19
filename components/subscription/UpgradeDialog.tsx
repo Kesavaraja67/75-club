@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { loadRazorpayScript } from "@/lib/razorpay-loader";
 import { isInstalledPWA } from "@/lib/pwa-utils";
+import { useRef } from "react";
 
 /**
  * Payment State Machine
@@ -81,6 +82,12 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
   const [state, setState] = useState<PaymentState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter();
+  
+  // Ref to track current state for callbacks (avoids stale closures)
+  const stateRef = useRef<PaymentState>('idle');
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Reset state when dialog closes/opens
   useEffect(() => {
@@ -145,7 +152,8 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
           handleback: true,
           confirm_close: true,
           ondismiss: () => {
-            if (state !== 'success' && state !== 'verifying') {
+            // Use ref to check current state reliably
+            if (stateRef.current !== 'success' && stateRef.current !== 'verifying') {
               setState('idle');
               toast.info("Payment cancelled");
             }
@@ -158,6 +166,8 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
 
       if (useRedirectFlow) {
         console.log("[Payment] Using redirect flow for iOS PWA");
+        // Mark redirect in progress for better UX on return
+        sessionStorage.setItem("razorpay_redirect_in_progress", "true");
         options.redirect = true;
         options.callback_url = `${window.location.origin}/api/payment/callback`;
       }
@@ -204,10 +214,10 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
           setState('success');
           toast.success("🎉 Welcome to Pro!");
           // Small delay before closing/refreshing
-          setTimeout(() => {
+          setTimeout(async () => {
+            // Navigate first, then close to avoid "flash"
+            await router.push('/dashboard?payment=success');
             onOpenChange(false);
-            router.refresh();
-            router.push('/dashboard?payment=success');
           }, 2000);
         }
       } else {

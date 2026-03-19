@@ -1,19 +1,18 @@
-/**
- * @file lib/razorpay-loader.ts
- * @description Idempotent script loader for the Razorpay Checkout SDK.
- * Ensures the SDK is loaded exactly once and provides a reliable promise for callers.
- */
-
-let razorpayLoaded = false;
 let loadingPromise: Promise<void> | null = null;
+let razorpayLoaded = false;
 
 /**
- * Loads the Razorpay SDK script dynamically.
- * @returns {Promise<void>} Resolves when the script is ready, or rejects on timeout/error.
+ * Dynamically loads the Razorpay checkout script.
+ * Returns a promise that resolves when the script is loaded and window.Razorpay is available.
  */
 export function loadRazorpayScript(): Promise<void> {
+  // SSR Guard
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return Promise.reject(new Error('Razorpay script can only be loaded in a browser environment'));
+  }
+
   // 1. Return immediately if already globally available
-  if (typeof window !== 'undefined' && 'Razorpay' in window) {
+  if ('Razorpay' in window) {
     razorpayLoaded = true;
     return Promise.resolve();
   }
@@ -25,31 +24,30 @@ export function loadRazorpayScript(): Promise<void> {
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
-    script.id = 'razorpay-sdk';
+    
+    // Prevent script from hanging
+    const timeout = setTimeout(() => {
+      reject(new Error('Razorpay SDK load timeout'));
+    }, 10000);
 
     script.onload = () => {
+      clearTimeout(timeout);
       razorpayLoaded = true;
       resolve();
     };
 
     script.onerror = () => {
-      loadingPromise = null;
-      reject(new Error('Failed to load Razorpay SDK. Please check your connection.'));
+      clearTimeout(timeout);
+      loadingPromise = null; // Allow retry
+      reject(new Error('Failed to load Razorpay SDK'));
     };
 
-    // 3. Fail fast if it takes too long (10s)
-    const timeout = setTimeout(() => {
-      if (!razorpayLoaded) {
-        loadingPromise = null;
-        reject(new Error('Razorpay SDK load timeout. Please try again.'));
-      }
-    }, 10000);
-
-    // Cleanup timeout if it loads
-    script.addEventListener('load', () => clearTimeout(timeout));
-
-    document.head.appendChild(script);
+    document.body.appendChild(script);
   });
 
   return loadingPromise;
+}
+
+export function isRazorpayLoaded(): boolean {
+  return razorpayLoaded;
 }

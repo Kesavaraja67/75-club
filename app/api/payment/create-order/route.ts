@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getRazorpay, PAYMENT_CONFIG, rupeesToPaise } from "@/lib/razorpay";
+import { getRazorpay, generateOrderNotes } from "@/lib/razorpay";
 import { rateLimit } from "@/lib/rate-limit";
 import { getServerSubscriptionStatus } from "@/lib/subscription-server";
 
@@ -34,47 +34,44 @@ export async function POST() {
         }
       );
     }
-
-    // 4. Check for existing unpaid order in last 30 minutes
-    const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    // 4. PREVENT DUPLICATE ORDERS (idempotency)
+    // Check for an existing 'created' order in the last 15 minutes to avoid spamming Razorpay.
+    const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
     const { data: existingOrder } = await supabase
       .from("payment_orders")
       .select("razorpay_order_id, amount, currency")
       .eq("user_id", user.id)
+      .eq("plan_type", "semester")
       .eq("status", "created")
-      .gt("created_at", thirtyMinsAgo)
+      .gt("created_at", fifteenMinsAgo)
       .order("created_at", { ascending: false })
-      .limit(1)
       .maybeSingle();
 
     if (existingOrder) {
+      console.log(`[Order] Reusing existing order: ${existingOrder.razorpay_order_id}`);
       return NextResponse.json({
         orderId: existingOrder.razorpay_order_id,
         amount: existingOrder.amount,
         currency: existingOrder.currency,
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         user: {
-          name: user.user_metadata?.full_name || "",
-          email: user.email || "",
-          contact: user.user_metadata?.phone || ""
+          name: user.email?.split('@')[0] || "Student",
+          email: user.email,
+          contact: "", 
         }
       });
     }
 
-    // 5. Create new Razorpay order
-    const amount = PAYMENT_CONFIG.PRO_SEMESTER_PRICE;
-    const receiptId = `rect_${user.id.substring(0, 8)}_${Date.now()}`;
-    
-    const rzp = getRazorpay();
-    const order = await rzp.orders.create({
-      amount: rupeesToPaise(amount),
+    // 5. CREATE NEW ORDER IN RAZORPAY
+    const razorpay = getRazorpay();
+    const amount = 249; // Strictly ₹249
+    const amountInPaise = amount * 100;
+
+    const order = await razorpay.orders.create({
+      amount: amountInPaise,
       currency: "INR",
-      receipt: receiptId,
-      notes: {
-        userId: user.id,
-        planType: "semester",
-        app: "75club"
-      },
+      receipt: `receipt_${Date.now()}_${user.id.substring(0, 8)}`,
+      notes: generateOrderNotes(user.id, "semester"),
     });
 
     // 6. Store order in database

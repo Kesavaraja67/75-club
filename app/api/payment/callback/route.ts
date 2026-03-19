@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { activateProSubscription } from "@/lib/subscription-server";
+import { getRazorpay } from "@/lib/razorpay";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -38,18 +39,32 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL("/dashboard?payment=failed&reason=invalid_signature", request.url));
     }
 
-    // 2. Identify User
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // 2. Identify User & Fulfil (using notes.userId from Razorpay to be session-independent)
+    // The signature check already proved the orderId/paymentId are genuine.
+    const razorpay = getRazorpay();
+    let userId: string | null = null;
+    
+    try {
+      const order = await razorpay.orders.fetch(orderId);
+      userId = order.notes?.userId as string;
+    } catch (err) {
+      console.error("[Callback] Failed to fetch order notes from Razorpay:", err);
+    }
 
-    if (!user) {
-      // If session lost, we rely on Webhook to activate. 
-      // Redirect to login or home with a pending message.
+    if (!userId) {
+      // Fallback to session if notes are missing (should not happen in prod)
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      userId = user?.id || null;
+    }
+
+    if (!userId) {
+      console.error("[Callback] Could not resolve user identity for payment:", paymentId);
       return NextResponse.redirect(new URL("/login?payment=pending", request.url));
     }
 
-    // 3. Trigger Activation (Idempotent)
-    await activateProSubscription(user.id, paymentId, 'verify');
+    // 3. Trigger Activation (Idempotent by paymentId)
+    await activateProSubscription(userId, paymentId, 'verify');
 
     // 4. Return to Dashboard
     return NextResponse.redirect(new URL("/dashboard?payment=success", request.url));
