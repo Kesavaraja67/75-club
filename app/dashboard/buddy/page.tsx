@@ -39,7 +39,8 @@ export default function AIBuddyPage() {
   // Check auth and Pro status
   useEffect(() => {
     const checkAccess = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       
       if (!user) {
         router.push("/login");
@@ -60,7 +61,11 @@ export default function AIBuddyPage() {
       }
     };
 
-    checkAccess();
+    checkAccess().catch(err => {
+      console.error("Auth check failed:", err);
+      // Fail gracefully on network drops, fallback to layout redirect if needed
+      setCheckingAuth(false);
+    });
   }, [router, supabase]);
 
   // Auto-scroll to bottom
