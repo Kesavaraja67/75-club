@@ -14,8 +14,9 @@ export function getAttendancePercentage(
   hoursPresent: number,
   totalHours: number
 ): number {
-  if (totalHours === 0) return 0;
-  return (hoursPresent / totalHours) * 100;
+  if (totalHours <= 0) return 0;
+  const pct = (hoursPresent / totalHours) * 100;
+  return Math.min(Math.max(0, pct), 100);
 }
 
 /**
@@ -96,17 +97,25 @@ export interface AttendanceStats {
 }
 
 export function getAggregateStats(subjects: Subject[]): AttendanceStats {
-  const totalClasses = subjects.reduce((acc, s) => acc + s.totalHours, 0);
-  const totalPresent = subjects.reduce((acc, s) => acc + s.hoursPresent, 0);
+  // Normalize subject data defensively
+  const normalizedSubjects = subjects.map((s) => {
+    const totalHours = Math.max(0, s.totalHours);
+    // Clamp hoursPresent to be between 0 and totalHours
+    const hoursPresent = Math.min(Math.max(0, s.hoursPresent), totalHours);
+    return { ...s, totalHours, hoursPresent };
+  });
+
+  const totalClasses = normalizedSubjects.reduce((acc, s) => acc + s.totalHours, 0);
+  const totalPresent = normalizedSubjects.reduce((acc, s) => acc + s.hoursPresent, 0);
   const overallPercentage =
     totalClasses > 0 ? (totalPresent / totalClasses) * 100 : 0;
 
-  const atRiskCount = subjects.filter((s) => {
+  const atRiskCount = normalizedSubjects.filter((s) => {
     if (s.totalHours === 0) return false;
     return getAttendancePercentage(s.hoursPresent, s.totalHours) < s.threshold;
   }).length;
 
-  const safeCount = subjects.filter((s) => {
+  const safeCount = normalizedSubjects.filter((s) => {
     if (s.totalHours === 0) return false;
     const pct = getAttendancePercentage(s.hoursPresent, s.totalHours);
     const bunks = getSafeBunks(s.hoursPresent, s.totalHours, s.threshold);

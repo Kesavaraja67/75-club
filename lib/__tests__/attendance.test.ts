@@ -35,7 +35,7 @@ describe("getAttendancePercentage", () => {
 // ─── getSafeBunks ─────────────────────────────────────────────────────────────
 
 describe("getSafeBunks", () => {
-  it("allows 20 bunks with 80% attendance and 40 classes at 75% threshold", () => {
+  it("allows 2 bunks with 80% attendance at 75% threshold", () => {
     // 32 present, 40 total → 80%, threshold 75%
     // (32*100 - 75*40) / 75 = (3200 - 3000)/75 = 200/75 = 2.66 → floor = 2
     // Wait: the formula gives floor((32*100 - 75*40)/75) = floor(200/75) = 2

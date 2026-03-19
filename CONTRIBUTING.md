@@ -47,7 +47,7 @@ Open [http://localhost:3000](http://localhost:3000) — the app should load with
 
 ### Branch Naming
 
-```
+```text
 feat/short-description     # New feature
 fix/short-description      # Bug fix
 chore/short-description    # Tooling, deps, refactor
@@ -69,7 +69,7 @@ All four checks also run automatically in GitHub Actions on every PR.
 
 We follow **Conventional Commits**:
 
-```
+```text
 feat(dashboard): add subject reorder drag-and-drop
 fix(pwa): resolve cold-start blank screen on iOS
 docs(readme): update setup instructions
@@ -80,7 +80,7 @@ chore(deps): bump next to 16.2.0
 
 ## Project Structure
 
-```
+```text
 app/                    # Next.js App Router pages and layouts
   (auth)/               # Login, signup, forgot password
   dashboard/            # Protected dashboard routes
