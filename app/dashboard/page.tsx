@@ -62,7 +62,13 @@ export default function DashboardPage() {
       
       // SELF-HEALING: Trigger reconciliation on mount to catch any missed activations
       fetch("/api/subscription/reconcile", { method: "POST" })
-        .then(res => res.json())
+        .then(async (res) => {
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.message || data.error || "Reconciliation failed");
+          }
+          return res.json();
+        })
         .then(data => {
           if (data.reconciled) {
             console.log("[Dashboard] Subscription reconciled, refreshing status...");
