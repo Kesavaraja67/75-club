@@ -41,7 +41,6 @@ export async function POST() {
       .from("payment_orders")
       .select("razorpay_order_id, amount, currency")
       .eq("user_id", user.id)
-      .eq("plan_type", "semester")
       .eq("status", "created")
       .gt("created_at", fifteenMinsAgo)
       .order("created_at", { ascending: false })

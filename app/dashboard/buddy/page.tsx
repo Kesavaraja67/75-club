@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -32,41 +32,45 @@ export default function AIBuddyPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isProUser, setIsProUser] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [authCheckError, setAuthCheckError] = useState<unknown | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
+  const checkAccess = useCallback(async () => {
+    setAuthCheckError(null);
+    setCheckingAuth(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    const { isProUser: isPro } = await fetchSubscriptionStatus(user.id, supabase);
+    setIsProUser(isPro);
+    setCheckingAuth(false);
+
+    // Add welcome message
+    if (isPro) {
+      setMessages([{
+        role: "assistant",
+        content: "Hey! 👋 I'm your AI Buddy. Ask me anything about your attendance, and I'll help you make smart bunking decisions! 😎",
+        timestamp: new Date(),
+      }]);
+    }
+  }, [router, supabase]);
+
   // Check auth and Pro status
   useEffect(() => {
-    const checkAccess = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      const { isProUser: isPro } = await fetchSubscriptionStatus(user.id, supabase);
-      setIsProUser(isPro);
-      setCheckingAuth(false);
-
-      // Add welcome message
-      if (isPro) {
-        setMessages([{
-          role: "assistant",
-          content: "Hey! 👋 I'm your AI Buddy. Ask me anything about your attendance, and I'll help you make smart bunking decisions! 😎",
-          timestamp: new Date(),
-        }]);
-      }
-    };
-
-    checkAccess().catch(err => {
+    checkAccess().catch((err: unknown) => {
       console.error("Auth check failed:", err);
       // Fail gracefully on network drops, fallback to layout redirect if needed
+      setAuthCheckError(err);
       setCheckingAuth(false);
     });
-  }, [router, supabase]);
+  }, [checkAccess]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -128,6 +132,28 @@ export default function AIBuddyPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-black" />
+      </div>
+    );
+  }
+
+  if (authCheckError) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <Card className="p-8 text-center border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+          <div className="flex justify-center mb-4">
+            <Loader2 className="h-16 w-16 text-red-500" />
+          </div>
+          <h2 className="text-3xl font-black mb-4">Connection Error 🔌</h2>
+          <p className="text-gray-600 mb-6 text-lg">
+            We couldn&apos;t verify your account access. This might be due to a slow connection or a service issue.
+          </p>
+          <Button
+            onClick={() => checkAccess()}
+            className="font-bold text-lg px-8 py-6 rounded-xl border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all"
+          >
+            Try Again
+          </Button>
+        </Card>
       </div>
     );
   }

@@ -52,13 +52,19 @@ export default function DashboardPage() {
   const subjectLimit = subscriptionStatus?.subjectLimit ?? 4;
   const canUseAIScan = subscriptionStatus?.canUseAIScan ?? false;
 
+  const supabase = useMemo(() => createClient(), []);
+
   useEffect(() => {
     const loadSubscription = async () => {
-      const status = await fetchSubscriptionStatus();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) return;
+      
+      const status = await fetchSubscriptionStatus(user.id, supabase);
       setSubscriptionStatus(status);
     };
     loadSubscription();
-  }, []);
+  }, [supabase]);
   
   // Scan States
   const [isScanOpen, setIsScanOpen] = useState(false);
@@ -78,8 +84,6 @@ export default function DashboardPage() {
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState<string>("");
   const [upgradeMessage, setUpgradeMessage] = useState<string>("");
-  
-  const supabase = useMemo(() => createClient(), []);
 
   const fetchSubjects = useCallback(async (signalOrEvent?: AbortSignal | unknown) => {
     const signal = signalOrEvent instanceof AbortSignal ? signalOrEvent : undefined;

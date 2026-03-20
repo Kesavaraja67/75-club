@@ -83,9 +83,20 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
   
   // Ref to track current state for callbacks (avoids stale closures)
   const stateRef = useRef<PaymentState>('idle');
+  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Reset state when dialog closes/opens
   useEffect(() => {
@@ -212,7 +223,8 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
           setState('success');
           toast.success("🎉 Welcome to Pro!");
           // Small delay before closing/refreshing
-          setTimeout(() => {
+          if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current);
+          redirectTimeoutRef.current = setTimeout(() => {
             // Force a hard reload so all server components and client states 
             // naturally grab the new Pro status without App Router remount bugs
             window.location.assign('/dashboard?payment=success');

@@ -1,17 +1,22 @@
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(keys.map((key) => caches.delete(key)));
+      const targetCaches = keys.filter(key => 
+        key.startsWith('static-shell-') || 
+        key.startsWith('workbox-') || 
+        key.startsWith('next-pwa-')
+      );
+      return Promise.all(targetCaches.map((key) => caches.delete(key)));
     }).then(() => {
       return self.registration.unregister();
     })
   );
 });
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', () => {
   // Do nothing, let the browser handle it
 });
