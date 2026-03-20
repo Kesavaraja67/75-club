@@ -102,7 +102,12 @@ export default function SettingsPage() {
         method: 'POST',
         cache: 'no-store'
       });
-      const data = await response.json();
+      
+      const data = await response.json().catch(() => ({}));
+      
+      if (!response.ok) {
+        throw new Error(data.message || data.error || "Failed to connect to reconciliation service");
+      }
       
       if (data.reconciled) {
         toast.success("🎉 Pro status activated!", { id: toastId });
@@ -118,7 +123,7 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error("Sync error:", error);
-      toast.error("Failed to sync. Please check your internet connection.", { id: toastId });
+      toast.error(error instanceof Error ? error.message : "Failed to sync. Please check your internet connection.", { id: toastId });
     } finally {
       setSyncing(false);
     }
@@ -232,7 +237,11 @@ export default function SettingsPage() {
                     className="w-fit text-blue-600 hover:text-blue-800 hover:bg-blue-50 font-bold flex items-center gap-2 -ml-2 h-auto py-1 px-2"
                   >
                     {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />}
-                    {syncing ? "Syncing..." : "Not seeing Pro? Sync now"}
+                    {syncing 
+                      ? "Syncing..." 
+                      : tier === 'pro' 
+                        ? "Re-check subscription status" 
+                        : "Not seeing Pro? Sync now"}
                   </Button>
                 </div>
                 
