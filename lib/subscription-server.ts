@@ -96,6 +96,7 @@ export async function activateProSubscription(
   method: 'verify' | 'webhook' | 'manual' = 'verify'
 ) {
   const client = getServiceClient();
+  console.log(`[SubscriptionServer] Starting Pro activation for user ${userId} via ${method}`);
 
   // 1. FETCH CURRENT SUBSCRIPTION (to handle duration extension)
   const { data: existing, error: fetchError } = await client

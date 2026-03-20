@@ -55,6 +55,7 @@ export async function fetchSubscriptionStatus(userId?: string, client?: Supabase
     // console.log("[Subscription] Fetching for user:", targetUserId);
 
     // Fetch subscription from subscriptions table
+    // Note: Global fetch is already configured with cache: 'no-store' in lib/fetch-with-timeout.ts
     const { data: subscription, error } = await supabase
       .from('subscriptions')
       .select('plan_type, status, current_period_end')

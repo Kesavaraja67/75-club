@@ -28,7 +28,13 @@ export const supabaseFetchWithTimeout: typeof fetch = (input, init) => {
           ? (AbortSignal as any).any([init.signal, timeoutSignal])
           : timeoutSignal // Node.js < 20 / older browser fallback
         : timeoutSignal;
-      return fetch(input, { ...init, signal });
+      return fetch(input, { 
+        ...init, 
+        signal,
+        // CRITICAL: Disable Next.js global fetch cache for Supabase requests.
+        // This ensures subscription status and attendance data are always fresh.
+        cache: 'no-store'
+      });
     },
     25000,
     "Data connection timed out. Please check your connection and try again."
