@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import { Loader2, User, CreditCard, LogOut, Shield, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -22,47 +22,62 @@ export default function SettingsPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
+  const loadData = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      setEmail(user.email || "");
+
+      // 1. Fetch profile for name
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('name')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profile) {
+        setName(profile.name);
+      } else {
+        setName(user.user_metadata?.name || "");
+      }
+
+      // 2. Fetch official subscription status (Source of Truth)
+      const { fetchSubscriptionStatus } = await import("@/lib/subscription");
+      const status = await fetchSubscriptionStatus(user.id, supabase);
+      if (status) {
+        setTier(status.tier);
+      } else {
+        console.error("Failed to fetch subscription status in Settings page");
+      }
+
+    } catch (error) {
+      console.error("Error loading settings data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [router, supabase]);
+
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          router.push("/login");
-          return;
-        }
-  
-        setEmail(user.email || "");
-  
-        // 1. Fetch profile for name
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('name')
-          .eq('user_id', user.id)
-          .single();
-  
-        if (profile) {
-          setName(profile.name);
-        } else {
-          setName(user.user_metadata?.name || "");
-        }
+    loadData();
 
-        // 2. Fetch official subscription status (Source of Truth)
-        const { fetchSubscriptionStatus } = await import("@/lib/subscription");
-        const status = await fetchSubscriptionStatus(user.id, supabase);
-        if (status) {
-          setTier(status.tier);
-        } else {
-          console.error("Failed to fetch subscription status in Settings page");
-        }
-
-      } catch (error) {
-        console.error("Error loading settings data:", error);
-      } finally {
-        setLoading(false);
+    // PWA RESUME DETECTION: Refresh status when app comes back to foreground
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
       }
     };
+    
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
 
-    loadData();
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, [router, supabase]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -98,7 +113,8 @@ export default function SettingsPage() {
     setSyncing(true);
     const toastId = toast.loading("Checking for payments with Razorpay...");
     try {
-      const response = await fetch('/api/subscription/reconcile', { 
+      // Append timestamp to bypass PWA/ISP cache
+      const response = await fetch(`/api/subscription/reconcile?t=${Date.now()}`, { 
         method: 'POST',
         cache: 'no-store'
       });
@@ -112,12 +128,7 @@ export default function SettingsPage() {
       if (data.reconciled) {
         toast.success("🎉 Pro status activated!", { id: toastId });
         // Re-load data
-        const { fetchSubscriptionStatus } = await import("@/lib/subscription");
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const status = await fetchSubscriptionStatus(user.id, supabase);
-          if (status) setTier(status.tier);
-        }
+        loadData();
       } else {
         toast.info("Your status is already up to date.", { id: toastId });
       }

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut, Menu, X } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
-import { fetchSubscriptionStatus, SubscriptionStatus } from "@/lib/subscription";
+import { SubscriptionStatus } from "@/lib/subscription";
 import Image from "next/image";
 
 export default function Navbar() {
@@ -22,18 +22,30 @@ export default function Navbar() {
       setIsAuthenticated(!!session);
       
       if (session) {
-        const status = await fetchSubscriptionStatus();
+        const { fetchSubscriptionStatus } = await import("@/lib/subscription");
+        const status = await fetchSubscriptionStatus(session.user.id, supabase);
         setSubscription(status);
       }
     };
     
     checkAuth();
 
+    // PWA RESUME DETECTION: Refresh status when app comes back to foreground
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkAuth();
+      }
+    };
+    
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
     // 2. Fix shadowing: Rename destuctured variable
     const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(async (_event: import("@supabase/supabase-js").AuthChangeEvent, session: import("@supabase/supabase-js").Session | null) => {
       setIsAuthenticated(!!session);
       if (session) {
-        const status = await fetchSubscriptionStatus();
+        const { fetchSubscriptionStatus } = await import("@/lib/subscription");
+        const status = await fetchSubscriptionStatus(session.user.id, supabase);
         setSubscription(status);
       } else {
         setSubscription(null);
@@ -42,6 +54,8 @@ export default function Navbar() {
 
     return () => {
       authListener.unsubscribe();
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
     };
   }, [supabase]);
 

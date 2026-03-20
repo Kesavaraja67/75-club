@@ -61,7 +61,11 @@ export default function DashboardPage() {
       if (!user) return;
       
       // SELF-HEALING: Trigger reconciliation on mount to catch any missed activations
-      fetch("/api/subscription/reconcile", { method: "POST" })
+      // We append a timestamp to bypass any PWA/ISP caching
+      fetch(`/api/subscription/reconcile?t=${Date.now()}`, { 
+        method: "POST",
+        cache: "no-store",
+      })
         .then(async (res) => {
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
@@ -84,7 +88,23 @@ export default function DashboardPage() {
         console.error("Failed to fetch subscription status, keeping current or null state");
       }
     };
+    
     loadSubscription();
+
+    // PWA RESUME DETECTION: Refresh status when app comes back to foreground
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadSubscription();
+      }
+    };
+    
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, [supabase]);
   
   // Scan States
