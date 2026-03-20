@@ -38,11 +38,15 @@ export const createClient = () => {
         const cookieVal = match ? match[2] : null;
 
         // 3. Sync cookie to localStorage if they differ
+        // If cookie is present, it's the source of truth.
         if (cookieVal && cookieVal !== localVal) {
           window.localStorage.setItem(storageKey, cookieVal);
           return cookieVal;
         }
 
+        // If cookie is missing but localStorage has it, WE REVIVE IT (PWA standalone mode)
+        // However, if the server recently cleared cookies, this might lead to refresh_token_not_found.
+        // We'll return it and let Supabase try. If it fails, RLS or catch blocks will handle it.
         return localVal ?? cookieVal ?? '';
       },
       set(name: string, value: string, cookieOptions: CookieOptions) {

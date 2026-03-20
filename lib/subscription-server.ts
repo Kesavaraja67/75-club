@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getRazorpay } from "./razorpay";
 
 /**
  * Lazy initialization for the Supabase service client.
@@ -71,6 +72,20 @@ export async function getServerSubscriptionStatus(userId: string): Promise<Subsc
   }
 
   const isPro = data.plan_type === 'pro' && data.status === 'active';
+  
+  // SELF-HEALING: If not Pro, check for missed activations once
+  if (!isPro) {
+    try {
+      const reconciled = await reconcileSubscription(userId);
+      if (reconciled) {
+        // Re-fetch or return the new status
+        return getServerSubscriptionStatus(userId);
+      }
+    } catch (err) {
+      console.error(`[SubscriptionServer] Self-healing failed for ${userId}:`, err);
+    }
+  }
+
   const expiresAt = data.current_period_end;
   const isExpired = expiresAt && new Date(expiresAt) < new Date();
 
@@ -84,6 +99,84 @@ export async function getServerSubscriptionStatus(userId: string): Promise<Subsc
     canExportData: isPro,
     expiresAt: expiresAt
   };
+}
+
+/**
+ * Reconciles missing subscriptions by checking for unreconciled orders.
+ * Now even checks 'created' orders against Razorpay API to catch sync failures.
+ */
+export async function reconcileSubscription(userId: string): Promise<boolean> {
+  const client = getServiceClient();
+  const now = new Date();
+
+  // 1. Find the latest order (either 'paid' or 'created')
+  const { data: latestOrder, error: orderError } = await client
+    .from('payment_orders')
+    .select('razorpay_order_id, razorpay_payment_id, status')
+    .eq('user_id', userId)
+    .in('status', ['paid', 'created'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (orderError || !latestOrder) {
+    return false;
+  }
+
+  let finalPaymentId = latestOrder.razorpay_payment_id;
+
+  // 2. If 'created', check Razorpay directly to see if it was actually paid
+  if (latestOrder.status === 'created' && latestOrder.razorpay_order_id) {
+    try {
+      const razorpay = getRazorpay();
+      const payments = await razorpay.orders.fetchPayments(latestOrder.razorpay_order_id);
+      
+      // Find any successful payment for this order
+      const successfulPayment = (payments.items || []).find(p => 
+        p.status === 'captured' || p.status === 'authorized'
+      );
+
+      if (successfulPayment) {
+        console.log(`[SubscriptionServer] Verified payment ${successfulPayment.id} for order ${latestOrder.razorpay_order_id} via Razorpay API.`);
+        finalPaymentId = successfulPayment.id;
+        
+        // Update local DB since we now know it's paid
+        await client
+          .from('payment_orders')
+          .update({
+            status: 'paid',
+            razorpay_payment_id: finalPaymentId,
+            verified_at: now.toISOString(),
+            processed_at: now.toISOString()
+          })
+          .eq('razorpay_order_id', latestOrder.razorpay_order_id);
+      }
+    } catch (rzpErr) {
+      console.error("[SubscriptionServer] Failed to fetch payments from Razorpay:", rzpErr);
+    }
+  }
+
+  if (!finalPaymentId) {
+    return false;
+  }
+
+  // 3. Check if this payment is already linked to an active subscription
+  const { data: activeSub } = await client
+    .from('subscriptions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('razorpay_payment_id', finalPaymentId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (activeSub) {
+    // If it exists and matches exactly, we are done.
+    return false;
+  }
+
+  console.log(`[SubscriptionServer] Self-healing: Found missing activation for user ${userId}. Reconciling...`);
+  await activateProSubscription(userId, finalPaymentId, 'manual');
+  return true;
 }
 
 /**

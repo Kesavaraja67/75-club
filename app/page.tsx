@@ -28,7 +28,11 @@ export default function LandingPage() {
         
         // Handle definite errors vs transport timeouts
         if (error) {
-          console.error("[Auth] getUser error:", error);
+          // Suppress noise for guests: AuthSessionMissingError is expected if not logged in
+          if (error.name !== 'AuthSessionMissingError') {
+            console.error("[Auth] getUser error:", error);
+          }
+          
           if (error.status === 401 || error.status === 403) {
             if (isMounted) {
               setIsAuthenticated(false);

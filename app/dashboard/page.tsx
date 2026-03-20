@@ -60,6 +60,17 @@ export default function DashboardPage() {
       const user = session?.user;
       if (!user) return;
       
+      // SELF-HEALING: Trigger reconciliation on mount to catch any missed activations
+      fetch("/api/subscription/reconcile", { method: "POST" })
+        .then(res => res.json())
+        .then(data => {
+          if (data.reconciled) {
+            console.log("[Dashboard] Subscription reconciled, refreshing status...");
+            loadSubscription(); // Re-run to get fresh Pro status
+          }
+        })
+        .catch(err => console.error("Reconciliation trigger failed:", err));
+      
       const status = await fetchSubscriptionStatus(user.id, supabase);
       if (status) {
         setSubscriptionStatus(status);
@@ -182,7 +193,8 @@ export default function DashboardPage() {
     let channel: RealtimeChannel;
 
     const setupRealtime = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return;
 
       channel = supabase
