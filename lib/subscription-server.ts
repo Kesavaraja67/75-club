@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getRazorpay } from "./razorpay";
 
 /**
  * Lazy initialization for the Supabase service client.
@@ -71,6 +72,20 @@ export async function getServerSubscriptionStatus(userId: string): Promise<Subsc
   }
 
   const isPro = data.plan_type === 'pro' && data.status === 'active';
+  
+  // SELF-HEALING: If not Pro, check for missed activations once
+  if (!isPro) {
+    try {
+      const reconciled = await reconcileSubscription(userId);
+      if (reconciled) {
+        // Re-fetch or return the new status
+        return getServerSubscriptionStatus(userId);
+      }
+    } catch (err) {
+      console.error(`[SubscriptionServer] Self-healing failed for ${userId}:`, err);
+    }
+  }
+
   const expiresAt = data.current_period_end;
   const isExpired = expiresAt && new Date(expiresAt) < new Date();
 
@@ -84,6 +99,95 @@ export async function getServerSubscriptionStatus(userId: string): Promise<Subsc
     canExportData: isPro,
     expiresAt: expiresAt
   };
+}
+
+/**
+ * Reconciles missing subscriptions by checking for unreconciled orders.
+ * Now scans multiple recent orders and existing subscription payment IDs.
+ */
+export async function reconcileSubscription(userId: string): Promise<boolean> {
+  const client = getServiceClient();
+  const now = new Date();
+
+  console.log(`[SubscriptionServer] Starting deep reconciliation for user ${userId}`);
+
+  // 1. Strategy A: Check for any unsuccessful 'pro' subscription that HAS a payment ID
+  // This catches cases where the user has a payment recorded in the sub, but it's not active.
+  const { data: staleSub } = await client
+    .from('subscriptions')
+    .select('razorpay_payment_id, plan_type, status')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (staleSub?.razorpay_payment_id && (staleSub.status !== 'active' || staleSub.plan_type !== 'pro')) {
+    console.log(`[SubscriptionServer] Found stale but paid subscription for ${userId}. Fixing...`);
+    await activateProSubscription(userId, staleSub.razorpay_payment_id, 'manual');
+    return true;
+  }
+
+  const { data: recentOrders, error: orderError } = await client
+    .from('payment_orders')
+    .select('razorpay_order_id, razorpay_payment_id, status')
+    .eq('user_id', userId)
+    .in('status', ['paid', 'success', 'created'])
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  if (orderError || !recentOrders || recentOrders.length === 0) {
+    return false;
+  }
+
+  for (const order of recentOrders) {
+    const paymentId = order.razorpay_payment_id;
+
+    // Is this a confirmed payment?
+    if (order.status === 'paid' || order.status === 'success') {
+      if (paymentId) {
+        // Double check if this SPECIFIC payment is active
+        const { data: sub } = await client
+          .from('subscriptions')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('razorpay_payment_id', paymentId)
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        if (!sub) {
+          console.log(`[SubscriptionServer] Found unactivated successful order ${order.razorpay_order_id}. Fixing...`);
+          await activateProSubscription(userId, paymentId, 'manual');
+          return true;
+        }
+      }
+    } 
+    // Is this a 'created' order we should check with Razorpay?
+    else if (order.status === 'created' && order.razorpay_order_id) {
+      try {
+        const razorpay = getRazorpay();
+        const payments = await razorpay.orders.fetchPayments(order.razorpay_order_id);
+        const successPay = (payments.items || []).find(p => p.status === 'captured' || p.status === 'authorized');
+
+        if (successPay) {
+          console.log(`[SubscriptionServer] Verified payment ${successPay.id} for order ${order.razorpay_order_id} via API.`);
+          await client
+            .from('payment_orders')
+            .update({
+              status: 'paid',
+              razorpay_payment_id: successPay.id,
+              verified_at: now.toISOString(),
+              processed_at: now.toISOString()
+            })
+            .eq('razorpay_order_id', order.razorpay_order_id);
+          
+          await activateProSubscription(userId, successPay.id, 'manual');
+          return true;
+        }
+      } catch (e) {
+        console.error(`[SubscriptionServer] RZP check failed for ${order.razorpay_order_id}:`, e);
+      }
+    }
+  }
+
+  return false;
 }
 
 /**

@@ -4,7 +4,7 @@
  */
 export async function fetchWithTimeout<T>(
   operation: (signal: AbortSignal) => Promise<T>,
-  timeoutMs: number = 25000,
+  timeoutMs: number = 45000,
   errorMessage: string = "Connection timed out. Please try again."
 ): Promise<T> {
   const controller = new AbortController();
@@ -16,9 +16,6 @@ export async function fetchWithTimeout<T>(
   }
 }
 
-/**
- * Global fetch interceptor specifically injected into Supabase clients.
- */
 export const supabaseFetchWithTimeout: typeof fetch = (input, init) => {
   return fetchWithTimeout(
     (timeoutSignal) => {
@@ -28,15 +25,20 @@ export const supabaseFetchWithTimeout: typeof fetch = (input, init) => {
           ? (AbortSignal as any).any([init.signal, timeoutSignal])
           : timeoutSignal // Node.js < 20 / older browser fallback
         : timeoutSignal;
+
+      // Selective Cache Busting:
+      // Only disable cache for REST (database) requests.
+      // Leave Auth requests untouched to avoid session interference.
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const isRest = url.includes('/rest/v1/');
+      
       return fetch(input, { 
         ...init, 
         signal,
-        // CRITICAL: Disable Next.js global fetch cache for Supabase requests.
-        // This ensures subscription status and attendance data are always fresh.
-        cache: 'no-store'
+        ...(isRest ? { cache: 'no-store' } : {})
       });
     },
-    25000,
+    45000,
     "Data connection timed out. Please check your connection and try again."
   );
 };
