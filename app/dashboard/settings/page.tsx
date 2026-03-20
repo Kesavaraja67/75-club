@@ -17,6 +17,7 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [tier, setTier] = useState<"free" | "pro">("free");
+  const [syncing, setSyncing] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -90,6 +91,36 @@ export default function SettingsPage() {
       toast.error("Failed to update profile");
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleSyncStatus = async () => {
+    setSyncing(true);
+    const toastId = toast.loading("Checking for payments with Razorpay...");
+    try {
+      const response = await fetch('/api/subscription/reconcile', { 
+        method: 'POST',
+        cache: 'no-store'
+      });
+      const data = await response.json();
+      
+      if (data.reconciled) {
+        toast.success("🎉 Pro status activated!", { id: toastId });
+        // Re-load data
+        const { fetchSubscriptionStatus } = await import("@/lib/subscription");
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const status = await fetchSubscriptionStatus(user.id, supabase);
+          if (status) setTier(status.tier);
+        }
+      } else {
+        toast.info("Your status is already up to date.", { id: toastId });
+      }
+    } catch (error) {
+      console.error("Sync error:", error);
+      toast.error("Failed to sync. Please check your internet connection.", { id: toastId });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -178,18 +209,33 @@ export default function SettingsPage() {
           <CardContent className="p-8">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-2xl font-bold text-gray-900">Current Plan:</h3>
-                  {tier === 'pro' ? (
-                    <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-3 py-1 rounded-full text-sm font-black border-2 border-black shadow-sm flex items-center gap-1">
-                      <Sparkles className="h-3 w-3" /> PRO
-                    </span>
-                  ) : (
-                    <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-bold border-2 border-gray-400">
-                      FREE
-                    </span>
-                  )}
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-2xl font-bold text-gray-900">Current Plan:</h3>
+                    {tier === 'pro' ? (
+                      <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-3 py-1 rounded-full text-sm font-black border-2 border-black shadow-sm flex items-center gap-1">
+                        <Sparkles className="h-3 w-3" /> PRO
+                      </span>
+                    ) : (
+                      <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-bold border-2 border-gray-400">
+                        FREE
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Manual Sync Button (Fail-safe) */}
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleSyncStatus}
+                    disabled={syncing}
+                    className="w-fit text-blue-600 hover:text-blue-800 hover:bg-blue-50 font-bold flex items-center gap-2 -ml-2 h-auto py-1 px-2"
+                  >
+                    {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />}
+                    {syncing ? "Syncing..." : "Not seeing Pro? Sync now"}
+                  </Button>
                 </div>
+                
                 <p className="text-gray-600 max-w-md">
                   {tier === 'pro' 
                     ? "You have access to unlimited subjects, AI scanning, and advanced analytics."
