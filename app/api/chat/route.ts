@@ -17,8 +17,15 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Check if user is Pro
-    const { isProUser } = await fetchSubscriptionStatus(user.id, supabase);
-    if (!isProUser) {
+    const status = await fetchSubscriptionStatus(user.id, supabase);
+    if (!status) {
+      return NextResponse.json(
+        { error: "Failed to verify subscription status. Please try again." },
+        { status: 500 }
+      );
+    }
+
+    if (!status.isProUser) {
       return NextResponse.json(
         { error: "AI Buddy is a Pro feature. Please upgrade to access." },
         { status: 403 }

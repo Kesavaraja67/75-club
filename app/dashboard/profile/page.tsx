@@ -48,8 +48,13 @@ export default function ProfilePage() {
         }
 
         // 2. Fetch Subscription Status using shared utility
-        const { tier } = await fetchSubscriptionStatus(user.id, supabase);
-        setTier(tier);
+        const status = await fetchSubscriptionStatus(user.id, supabase);
+        if (status) {
+          setTier(status.tier);
+        } else {
+          console.error("Failed to fetch subscription status in Profile page");
+          // Optionally handle unknown state, for now we keep the default or previous
+        }
       } catch (error) {
         console.error("Error fetching profile:", error);
       } finally {

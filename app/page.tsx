@@ -52,7 +52,11 @@ export default function LandingPage() {
         const subStatus = await fetchSubscriptionStatus(user.id);
         if (!isMounted) return;
         setIsAuthenticated(true);
-        setIsProUser(subStatus.isProUser);
+        if (subStatus) {
+          setIsProUser(subStatus.isProUser);
+        } else {
+          console.error("Failed to fetch subscription status on landing page");
+        }
       } catch (err) {
         console.error("[Auth] Transport exception:", err);
         // Do not flip flags on transport exceptions (timeouts)
