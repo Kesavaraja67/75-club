@@ -52,13 +52,23 @@ export default function DashboardPage() {
   const subjectLimit = subscriptionStatus?.subjectLimit ?? 4;
   const canUseAIScan = subscriptionStatus?.canUseAIScan ?? false;
 
+  const supabase = useMemo(() => createClient(), []);
+
   useEffect(() => {
     const loadSubscription = async () => {
-      const status = await fetchSubscriptionStatus();
-      setSubscriptionStatus(status);
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) return;
+      
+      const status = await fetchSubscriptionStatus(user.id, supabase);
+      if (status) {
+        setSubscriptionStatus(status);
+      } else {
+        console.error("Failed to fetch subscription status, keeping current or null state");
+      }
     };
     loadSubscription();
-  }, []);
+  }, [supabase]);
   
   // Scan States
   const [isScanOpen, setIsScanOpen] = useState(false);
@@ -78,67 +88,93 @@ export default function DashboardPage() {
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState<string>("");
   const [upgradeMessage, setUpgradeMessage] = useState<string>("");
-  
-  const supabase = useMemo(() => createClient(), []);
 
-  const fetchSubjects = useCallback(async () => {
+  const fetchSubjects = useCallback(async (signalOrEvent?: AbortSignal | unknown) => {
+    const externalSignal = signalOrEvent instanceof AbortSignal ? signalOrEvent : undefined;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 25000); // hard 25s deadline as requested by bot
+
+    const signal = controller.signal;
+
+    // Link external signal to our controller
+    if (externalSignal) {
+      if (externalSignal.aborted) controller.abort();
+      externalSignal.addEventListener('abort', () => controller.abort());
+    }
+
     try {
       setLoading(true);
       setIsTimeout(false);
 
-      // Create a timeout promise that rejects after 10 seconds
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("TIMEOUT")), 10000);
-      });
-
-      // Wrap the actual fetch logic
-      const fetchDataPromise = async () => {
-        // Use getSession for faster client-side check since Layout already verified auth
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
-          return null;
-        }
-
-        const { data, error } = await supabase
-          .from('subjects')
-          .select('*')
-          .eq('user_id', session.user.id);
-
-        if (error) throw error;
-        
-        return (data || []).map((sub: { id: string; name: string; code?: string; type: string; total_hours: number; hours_present: number; threshold: number }) => ({
-          id: sub.id,
-          name: sub.name,
-          code: sub.code,
-          type: sub.type as import("@/lib/types").SubjectType, 
-          totalHours: sub.total_hours,
-          hoursPresent: sub.hours_present,
-          threshold: sub.threshold
-        }));
-      };
-
-      // Race the fetch against the timeout
-      const result = await Promise.race([fetchDataPromise(), timeoutPromise]) as Subject[] | null;
-
-      if (result) {
-        setSubjects(result);
+      // Use getSession for faster client-side check since Layout already verified auth
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        return;
       }
+
+      const query = supabase
+        .from('subjects')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .abortSignal(signal);
+
+
+      const { data, error } = await query;
+
+      // If our internal timeout triggered
+      if (signal.aborted && !externalSignal?.aborted) {
+        const timeoutErr = new Error("TimeoutError");
+        timeoutErr.name = "TimeoutError";
+        throw timeoutErr;
+      }
+
+      // If the request was aborted by external signal, stop here
+      if (externalSignal?.aborted) return;
+
+      if (error) throw error;
+      
+      const mapped = (data || []).map((sub: { id: string; name: string; code?: string; type: string; total_hours: number; hours_present: number; threshold: number }) => ({
+        id: sub.id,
+        name: sub.name,
+        code: sub.code,
+        type: sub.type as import("@/lib/types").SubjectType, 
+        totalHours: sub.total_hours,
+        hoursPresent: sub.hours_present,
+        threshold: sub.threshold
+      }));
+
+      setSubjects(mapped);
+
     } catch (error: unknown) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('aborted'))) {
+        console.log("Fetch subjects aborted");
+        return;
+      }
+      
       console.error("Error fetching subjects:", error);
       
-      if (error instanceof Error && error.message.toLowerCase().includes("time")) {
+      if (error instanceof Error && (error.message.toLowerCase().includes("time") || error.name === 'TimeoutError')) {
         setIsTimeout(true);
         toast.error("Connection timed out. Please try again.");
       } else {
         toast.error("Failed to load dashboard data");
       }
     } finally {
-      setLoading(false);
+      clearTimeout(timeoutId);
+      if (!signal.aborted || (signal.aborted && !externalSignal?.aborted)) {
+        setLoading(false);
+      }
     }
   }, [supabase]);
 
   useEffect(() => {
-    fetchSubjects();
+    const controller = new AbortController();
+    fetchSubjects(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [fetchSubjects]);
 
   // Real-time Sync

@@ -49,7 +49,11 @@ export default function HomePage() {
         // Fetch official subscription status
         const { fetchSubscriptionStatus } = await import("@/lib/subscription");
         const status = await fetchSubscriptionStatus(user.id, supabase);
-        setTier(status.tier);
+        if (status) {
+          setTier(status.tier);
+        } else {
+          console.error("Failed to fetch subscription status in Home page");
+        }
       } catch (error) {
         console.error("Error fetching profile:", error);
       } finally {

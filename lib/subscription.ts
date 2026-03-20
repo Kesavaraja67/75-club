@@ -32,7 +32,7 @@ const DEFAULT_FREE_STATUS: SubscriptionStatus = {
 /**
  * Fetch subscription status for a user from database
  */
-export async function fetchSubscriptionStatus(userId?: string, client?: SupabaseClient): Promise<SubscriptionStatus> {
+export async function fetchSubscriptionStatus(userId?: string, client?: SupabaseClient): Promise<SubscriptionStatus | null> {
   const supabase = client || createClient();
   
   try {
@@ -43,11 +43,11 @@ export async function fetchSubscriptionStatus(userId?: string, client?: Supabase
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError) {
         console.error("[Subscription] Auth error:", authError);
-        return DEFAULT_FREE_STATUS;
+        return null;
       }
       if (!user) {
         console.log("[Subscription] No user found");
-        return DEFAULT_FREE_STATUS;
+        return null;
       }
       targetUserId = user.id;
     }
@@ -64,7 +64,7 @@ export async function fetchSubscriptionStatus(userId?: string, client?: Supabase
 
     if (error) {
       console.error("[Subscription] Error fetching subscription:", error);
-      return DEFAULT_FREE_STATUS;
+      return null;
     }
 
     if (!subscription) {
@@ -99,8 +99,17 @@ export async function fetchSubscriptionStatus(userId?: string, client?: Supabase
     };
     
   } catch (error) {
-    console.error("[Subscription] Unexpected error:", error);
-    return DEFAULT_FREE_STATUS;
+    if (error instanceof Error) {
+      if (error.name === 'AbortError' || error.message.includes('aborted')) {
+         // Quietly ignore aborts
+         // console.log("[Subscription] Fetch aborted");
+      } else {
+         console.error("[Subscription] Unexpected error:", error.message || error);
+      }
+    } else {
+      console.error("[Subscription] Unexpected error:", error);
+    }
+    return null;
   }
 }
 

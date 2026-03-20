@@ -48,7 +48,11 @@ export default function SettingsPage() {
         // 2. Fetch official subscription status (Source of Truth)
         const { fetchSubscriptionStatus } = await import("@/lib/subscription");
         const status = await fetchSubscriptionStatus(user.id, supabase);
-        setTier(status.tier);
+        if (status) {
+          setTier(status.tier);
+        } else {
+          console.error("Failed to fetch subscription status in Settings page");
+        }
 
       } catch (error) {
         console.error("Error loading settings data:", error);

@@ -12,8 +12,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { isProUser } = await fetchSubscriptionStatus(user.id, supabase);
-    if (!isProUser) {
+    const status = await fetchSubscriptionStatus(user.id, supabase);
+    if (!status) {
+      return NextResponse.json(
+        { error: "Failed to verify subscription status. Please try again." },
+        { status: 500 }
+      );
+    }
+
+    if (!status.isProUser) {
       return NextResponse.json(
         { error: "Timetable Scan is a Pro feature. Please upgrade to access." },
         { status: 403 }

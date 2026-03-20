@@ -99,7 +99,12 @@ export default function Error({
               }
               if ("caches" in window) {
                 const keys = await caches.keys();
-                await Promise.all(keys.map((k) => caches.delete(k)));
+                const targetCaches = keys.filter(key => 
+                  key.startsWith('static-shell-') || 
+                  key.startsWith('workbox-') || 
+                  key.startsWith('next-pwa-')
+                );
+                await Promise.all(targetCaches.map((k) => caches.delete(k)));
               }
             } catch (err) {
               console.error("[Cache clear failed]", err);

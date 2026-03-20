@@ -41,7 +41,6 @@ export async function POST() {
       .from("payment_orders")
       .select("razorpay_order_id, amount, currency")
       .eq("user_id", user.id)
-      .eq("plan_type", "semester")
       .eq("status", "created")
       .gt("created_at", fifteenMinsAgo)
       .order("created_at", { ascending: false })
@@ -79,10 +78,11 @@ export async function POST() {
       .from("payment_orders")
       .insert({
         user_id: user.id,
+        order_id: order.receipt,         // Required by not-null constraint
+        razorpay_order_id: order.id,
         amount: amount,
         currency: "INR",
         status: "created",
-        razorpay_order_id: order.id,
         created_at: new Date().toISOString()
       });
 

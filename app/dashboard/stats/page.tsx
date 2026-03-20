@@ -28,17 +28,21 @@ export default function StatsPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Fetch subscription first
-        const status = await fetchSubscriptionStatus();
-        setSubscriptionStatus(status);
-        
-        // Then fetch subjects
+        // First fetch user session (fast path)
         const { data: { session } } = await supabase.auth.getSession();
         const user = session?.user;
         
         if (!user) {
           setLoading(false);
           return;
+        }
+
+        // Then fetch subscription with user id to avoid fallback
+        const status = await fetchSubscriptionStatus(user.id, supabase);
+        if (status) {
+          setSubscriptionStatus(status);
+        } else {
+          console.error("Failed to fetch subscription status in Stats page");
         }
 
         const { data, error } = await supabase

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Tesseract from "tesseract.js";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -50,6 +50,7 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [isProUser, setIsProUser] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [authCheckError, setAuthCheckError] = useState<unknown | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
   const [formData, setFormData] = useState({
@@ -70,33 +71,7 @@ export default function SchedulePage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const checkAccess = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user;
-    
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    const { isProUser: isPro } = await fetchSubscriptionStatus(user.id);
-    setIsProUser(isPro);
-    if (isPro) {
-      await loadData(user.id);
-    }
-    
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    checkAccess().catch(err => {
-      console.error("Schedule access check failed:", err);
-      setLoading(false);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadData = async (userId: string) => {
+  const loadData = useCallback(async (userId: string) => {
     // Load subjects
     const { data: subjectsData } = await supabase
       .from("subjects")
@@ -122,7 +97,42 @@ export default function SchedulePage() {
     if (slotsData) {
       setSlots(slotsData);
     }
-  };
+  }, [supabase]);
+
+  const checkAccess = useCallback(async () => {
+    setAuthCheckError(null);
+    setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    const status = await fetchSubscriptionStatus(user.id, supabase);
+    if (!status) {
+      setAuthCheckError(new Error("Failed to fetch subscription status"));
+      setLoading(false);
+      return;
+    }
+    
+    const { isProUser: isPro } = status;
+    setIsProUser(isPro);
+    if (isPro) {
+      await loadData(user.id);
+    }
+    
+    setLoading(false);
+  }, [router, supabase, loadData]);
+
+  useEffect(() => {
+    checkAccess().catch((err: unknown) => {
+      console.error("Schedule access check failed:", err);
+      setAuthCheckError(err);
+      setLoading(false);
+    });
+  }, [checkAccess]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -316,6 +326,28 @@ export default function SchedulePage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-black" />
+      </div>
+    );
+  }
+
+  if (authCheckError) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <Card className="p-8 text-center border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+          <div className="flex justify-center mb-4">
+            <Loader2 className="h-16 w-16 text-red-500" />
+          </div>
+          <h2 className="text-3xl font-black mb-4">Connection Error 🔌</h2>
+          <p className="text-gray-600 mb-6 text-lg">
+            We couldn&apos;t verify your account access. This might be due to a slow connection or a service issue.
+          </p>
+          <Button
+            onClick={() => checkAccess()}
+            className="font-bold text-lg px-8 py-6 rounded-xl border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all"
+          >
+            Try Again
+          </Button>
+        </Card>
       </div>
     );
   }
