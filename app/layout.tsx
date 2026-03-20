@@ -105,23 +105,16 @@ export default function RootLayout({
           strategy="lazyOnload"
         />
 
-        {/*
-         * Register our custom service worker.
-         * Runs after hydration (afterInteractive) so it doesn't block LCP.
-         * The SW file is served with Cache-Control: no-cache so every deploy
-         * gets the latest version.
-         */}
-        <Script id="register-sw" strategy="afterInteractive">
+
+        {/* Unregister old Service Worker to clear aggressive caching */}
+        <Script id="unregister-sw" strategy="afterInteractive">
           {`
             if ('serviceWorker' in navigator) {
-              navigator.serviceWorker
-                .register('/sw.js', { scope: '/' })
-                .then(function(reg) {
-                  console.log('[SW] Registered:', reg.scope);
-                })
-                .catch(function(err) {
-                  console.warn('[SW] Registration failed:', err);
-                });
+              navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                  registration.unregister();
+                }
+              });
             }
           `}
         </Script>

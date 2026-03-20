@@ -81,64 +81,76 @@ export default function DashboardPage() {
   
   const supabase = useMemo(() => createClient(), []);
 
-  const fetchSubjects = useCallback(async () => {
+  const fetchSubjects = useCallback(async (signalOrEvent?: AbortSignal | unknown) => {
+    const signal = signalOrEvent instanceof AbortSignal ? signalOrEvent : undefined;
+
     try {
       setLoading(true);
       setIsTimeout(false);
 
-      // Create a timeout promise that rejects after 10 seconds
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("TIMEOUT")), 10000);
-      });
-
-      // Wrap the actual fetch logic
-      const fetchDataPromise = async () => {
-        // Use getSession for faster client-side check since Layout already verified auth
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
-          return null;
-        }
-
-        const { data, error } = await supabase
-          .from('subjects')
-          .select('*')
-          .eq('user_id', session.user.id);
-
-        if (error) throw error;
-        
-        return (data || []).map((sub: { id: string; name: string; code?: string; type: string; total_hours: number; hours_present: number; threshold: number }) => ({
-          id: sub.id,
-          name: sub.name,
-          code: sub.code,
-          type: sub.type as import("@/lib/types").SubjectType, 
-          totalHours: sub.total_hours,
-          hoursPresent: sub.hours_present,
-          threshold: sub.threshold
-        }));
-      };
-
-      // Race the fetch against the timeout
-      const result = await Promise.race([fetchDataPromise(), timeoutPromise]) as Subject[] | null;
-
-      if (result) {
-        setSubjects(result);
+      // Use getSession for faster client-side check since Layout already verified auth
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        return;
       }
+
+      // Explicitly set abort signal on the fetch if possible, 
+      // though supabase-js v2 query builder abortSignal is chained like this:
+      const query = supabase
+        .from('subjects')
+        .select('*')
+        .eq('user_id', session.user.id);
+      
+      if (signal) {
+        query.abortSignal(signal);
+      }
+
+      const { data, error } = await query;
+
+      // If the request was aborted, stop here and don't update state
+      if (signal?.aborted) return;
+
+      if (error) throw error;
+      
+      const mapped = (data || []).map((sub: { id: string; name: string; code?: string; type: string; total_hours: number; hours_present: number; threshold: number }) => ({
+        id: sub.id,
+        name: sub.name,
+        code: sub.code,
+        type: sub.type as import("@/lib/types").SubjectType, 
+        totalHours: sub.total_hours,
+        hoursPresent: sub.hours_present,
+        threshold: sub.threshold
+      }));
+
+      setSubjects(mapped);
+
     } catch (error: unknown) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('aborted'))) {
+        console.log("Fetch subjects aborted");
+        return;
+      }
+      
       console.error("Error fetching subjects:", error);
       
-      if (error instanceof Error && error.message.toLowerCase().includes("time")) {
+      if (error instanceof Error && (error.message.toLowerCase().includes("time") || error.name === 'TimeoutError')) {
         setIsTimeout(true);
         toast.error("Connection timed out. Please try again.");
       } else {
         toast.error("Failed to load dashboard data");
       }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [supabase]);
 
   useEffect(() => {
-    fetchSubjects();
+    const controller = new AbortController();
+    fetchSubjects(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [fetchSubjects]);
 
   // Real-time Sync

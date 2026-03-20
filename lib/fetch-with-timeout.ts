@@ -4,7 +4,7 @@
  */
 export async function fetchWithTimeout<T>(
   operation: (signal: AbortSignal) => Promise<T>,
-  timeoutMs: number = 15000,
+  timeoutMs: number = 25000,
   errorMessage: string = "Connection timed out. Please try again."
 ): Promise<T> {
   const controller = new AbortController();
@@ -30,7 +30,7 @@ export const supabaseFetchWithTimeout: typeof fetch = (input, init) => {
         : timeoutSignal;
       return fetch(input, { ...init, signal });
     },
-    15000,
+    25000,
     "Data connection timed out. Please check your connection and try again."
   );
 };

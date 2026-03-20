@@ -99,7 +99,16 @@ export async function fetchSubscriptionStatus(userId?: string, client?: Supabase
     };
     
   } catch (error) {
-    console.error("[Subscription] Unexpected error:", error);
+    if (error instanceof Error) {
+      if (error.name === 'AbortError' || error.message.includes('aborted')) {
+         // Quietly ignore aborts
+         // console.log("[Subscription] Fetch aborted");
+      } else {
+         console.error("[Subscription] Unexpected error:", error.message || error);
+      }
+    } else {
+      console.error("[Subscription] Unexpected error:", error);
+    }
     return DEFAULT_FREE_STATUS;
   }
 }

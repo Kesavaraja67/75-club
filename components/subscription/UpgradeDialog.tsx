@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Check, X, Sparkles, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { loadRazorpayScript } from "@/lib/razorpay-loader";
 import { isInstalledPWA } from "@/lib/pwa-utils";
 import { useRef } from "react";
@@ -81,7 +80,6 @@ declare global {
 export default function UpgradeDialog({ open, onOpenChange, message, feature }: UpgradeDialogProps) {
   const [state, setState] = useState<PaymentState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const router = useRouter();
   
   // Ref to track current state for callbacks (avoids stale closures)
   const stateRef = useRef<PaymentState>('idle');
@@ -214,11 +212,11 @@ export default function UpgradeDialog({ open, onOpenChange, message, feature }: 
           setState('success');
           toast.success("🎉 Welcome to Pro!");
           // Small delay before closing/refreshing
-          setTimeout(async () => {
-            // Navigate first, then close to avoid "flash"
-            await router.push('/dashboard?payment=success');
-            onOpenChange(false);
-          }, 2000);
+          setTimeout(() => {
+            // Force a hard reload so all server components and client states 
+            // naturally grab the new Pro status without App Router remount bugs
+            window.location.assign('/dashboard?payment=success');
+          }, 1500);
         }
       } else {
         // Verification failed but payment was taken
