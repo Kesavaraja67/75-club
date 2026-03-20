@@ -11,6 +11,8 @@ self.addEventListener('activate', (event) => {
         key.startsWith('next-pwa-')
       );
       return Promise.all(targetCaches.map((key) => caches.delete(key)));
+    }).catch((err) => {
+      console.error('[SW] Cache deletion failed:', err);
     }).then(() => {
       return self.registration.unregister();
     })

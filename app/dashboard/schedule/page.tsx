@@ -110,7 +110,14 @@ export default function SchedulePage() {
       return;
     }
 
-    const { isProUser: isPro } = await fetchSubscriptionStatus(user.id, supabase);
+    const status = await fetchSubscriptionStatus(user.id, supabase);
+    if (!status) {
+      setAuthCheckError(new Error("Failed to fetch subscription status"));
+      setLoading(false);
+      return;
+    }
+    
+    const { isProUser: isPro } = status;
     setIsProUser(isPro);
     if (isPro) {
       await loadData(user.id);

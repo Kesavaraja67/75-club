@@ -39,7 +39,11 @@ export default function StatsPage() {
 
         // Then fetch subscription with user id to avoid fallback
         const status = await fetchSubscriptionStatus(user.id, supabase);
-        setSubscriptionStatus(status);
+        if (status) {
+          setSubscriptionStatus(status);
+        } else {
+          console.error("Failed to fetch subscription status in Stats page");
+        }
 
         const { data, error } = await supabase
           .from('subjects')

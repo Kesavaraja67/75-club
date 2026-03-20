@@ -61,7 +61,11 @@ export default function DashboardPage() {
       if (!user) return;
       
       const status = await fetchSubscriptionStatus(user.id, supabase);
-      setSubscriptionStatus(status);
+      if (status) {
+        setSubscriptionStatus(status);
+      } else {
+        console.error("Failed to fetch subscription status, keeping current or null state");
+      }
     };
     loadSubscription();
   }, [supabase]);
@@ -86,7 +90,19 @@ export default function DashboardPage() {
   const [upgradeMessage, setUpgradeMessage] = useState<string>("");
 
   const fetchSubjects = useCallback(async (signalOrEvent?: AbortSignal | unknown) => {
-    const signal = signalOrEvent instanceof AbortSignal ? signalOrEvent : undefined;
+    const externalSignal = signalOrEvent instanceof AbortSignal ? signalOrEvent : undefined;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 25000); // hard 25s deadline as requested by bot
+
+    const signal = controller.signal;
+
+    // Link external signal to our controller
+    if (externalSignal) {
+      if (externalSignal.aborted) controller.abort();
+      externalSignal.addEventListener('abort', () => controller.abort());
+    }
 
     try {
       setLoading(true);
@@ -98,21 +114,24 @@ export default function DashboardPage() {
         return;
       }
 
-      // Explicitly set abort signal on the fetch if possible, 
-      // though supabase-js v2 query builder abortSignal is chained like this:
       const query = supabase
         .from('subjects')
         .select('*')
-        .eq('user_id', session.user.id);
-      
-      if (signal) {
-        query.abortSignal(signal);
-      }
+        .eq('user_id', session.user.id)
+        .abortSignal(signal);
+
 
       const { data, error } = await query;
 
-      // If the request was aborted, stop here and don't update state
-      if (signal?.aborted) return;
+      // If our internal timeout triggered
+      if (signal.aborted && !externalSignal?.aborted) {
+        const timeoutErr = new Error("TimeoutError");
+        timeoutErr.name = "TimeoutError";
+        throw timeoutErr;
+      }
+
+      // If the request was aborted by external signal, stop here
+      if (externalSignal?.aborted) return;
 
       if (error) throw error;
       
@@ -143,7 +162,8 @@ export default function DashboardPage() {
         toast.error("Failed to load dashboard data");
       }
     } finally {
-      if (!signal?.aborted) {
+      clearTimeout(timeoutId);
+      if (!signal.aborted || (signal.aborted && !externalSignal?.aborted)) {
         setLoading(false);
       }
     }
