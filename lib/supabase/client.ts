@@ -18,11 +18,12 @@ export const createClient = () => {
       get(name: string) {
         if (typeof window === 'undefined') return '';
         
-        const storageKey = `sb-${name}`;
+        // Supabase names cookies like 'sb-<project-id>-auth-token'
+        // Our storageKey should match the cookie name but we must avoid double-prefixing
+        const storageKey = name.startsWith('sb-') ? name : `sb-${name}`;
         const localVal = window.localStorage.getItem(storageKey);
         
-        // 1. Check for explicit revocation marker (set by proxy on 401/403)
-        // If the server explicitly cleared the cookie, we should not revive it from localStorage
+        // 1. Check for explicit revocation marker
         const revokedKey = `${storageKey}-revoked`;
         const isRevoked = document.cookie.includes(`${revokedKey}=true`);
         
@@ -32,27 +33,48 @@ export const createClient = () => {
           return '';
         }
 
-        // 2. Standard cookie check
-        const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const match = document.cookie.match(new RegExp('(^| )' + escapedName + '=([^;]+)'));
-        const cookieVal = match ? match[2] : null;
+        // 2. Standard cookie check (supporting chunks)
+        // If cookie is present, it's the source of truth.
+        // We look for the main cookie AND any chunks (.0, .1...)
+        const getCookie = (name: string) => {
+          const match = document.cookie.match(new RegExp('(^| )' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]+)'));
+          return match ? match[2] : null;
+        };
+
+        let cookieVal = getCookie(name);
+        
+        // If the main cookie is missing or looks like a chunked start, try pieces
+        if (!cookieVal || cookieVal === 'true') { // some SSR setups set a 'base' cookie to 'true'
+          let chunk = 0;
+          let combined = '';
+          while (true) {
+            const val = getCookie(`${name}.${chunk}`);
+            if (!val) break;
+            combined += val;
+            chunk++;
+          }
+          if (combined) cookieVal = combined;
+        }
 
         // 3. Sync cookie to localStorage if they differ
-        // If cookie is present, it's the source of truth.
         if (cookieVal && cookieVal !== localVal) {
-          window.localStorage.setItem(storageKey, cookieVal);
+          // If it looks like legitimate JSON, save it
+          if (cookieVal.startsWith('{') || cookieVal.length > 50) {
+            window.localStorage.setItem(storageKey, cookieVal);
+          }
           return cookieVal;
         }
 
-        // If cookie is missing but localStorage has it, WE REVIVE IT (PWA standalone mode)
-        // However, if the server recently cleared cookies, this might lead to refresh_token_not_found.
-        // We'll return it and let Supabase try. If it fails, RLS or catch blocks will handle it.
+        // 4. PWA Revive (standalone mode)
+        // If cookies are gone (e.g. app reopened after backgrounding), use localStorage
         return localVal ?? cookieVal ?? '';
       },
       set(name: string, value: string, cookieOptions: CookieOptions) {
         if (typeof window === 'undefined') return;
-        window.localStorage.setItem(`sb-${name}`, value);
+        const storageKey = name.startsWith('sb-') ? name : `sb-${name}`;
+        window.localStorage.setItem(storageKey, value);
         
+        // Set cookie
         let cookieString = `${name}=${value}; path=${cookieOptions.path || '/'};`;
         if (cookieOptions.maxAge) cookieString += ` max-age=${cookieOptions.maxAge};`;
         if (cookieOptions.domain) cookieString += ` domain=${cookieOptions.domain};`;
@@ -62,7 +84,8 @@ export const createClient = () => {
       },
       remove(name: string, cookieOptions: CookieOptions) {
         if (typeof window === 'undefined') return;
-        window.localStorage.removeItem(`sb-${name}`);
+        const storageKey = name.startsWith('sb-') ? name : `sb-${name}`;
+        window.localStorage.removeItem(storageKey);
         let cookieString = `${name}=; path=${cookieOptions.path || '/'}; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0;`;
         if (cookieOptions.domain) cookieString += ` domain=${cookieOptions.domain};`;
         document.cookie = cookieString;

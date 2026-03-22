@@ -209,10 +209,21 @@ export default function DashboardPage() {
   useEffect(() => {
     const controller = new AbortController();
     fetchSubjects(controller.signal);
+    
+    // HARD TIMEOUT: If loading takes > 10s, force it to end 
+    // This unblocks the UI even if the network is crawling
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn("[Dashboard] Initial fetch taking too long, forcing load end");
+        setLoading(false);
+      }
+    }, 10000);
+
     return () => {
       controller.abort();
+      clearTimeout(timeout);
     };
-  }, [fetchSubjects]);
+  }, [fetchSubjects, loading]);
 
   // Real-time Sync
   useEffect(() => {
@@ -428,6 +439,21 @@ export default function DashboardPage() {
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground animate-pulse">Loading your dashboard...</p>
+          <button 
+            onClick={async () => {
+              localStorage.clear();
+              document.cookie.split(";").forEach((c) => {
+                const name = c.trim().split("=")[0];
+                if (name.startsWith("sb-")) {
+                  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+                }
+              });
+              window.location.href = "/";
+            }}
+            className="mt-8 text-xs text-muted-foreground hover:text-foreground underline"
+          >
+            Taking too long? Click here to reset session
+          </button>
         </div>
       ) : isTimeout ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">

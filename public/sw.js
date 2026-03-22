@@ -5,20 +5,22 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
-      const targetCaches = keys.filter(key => 
-        key.startsWith('static-shell-') || 
-        key.startsWith('workbox-') || 
-        key.startsWith('next-pwa-')
-      );
-      return Promise.all(targetCaches.map((key) => caches.delete(key)));
-    }).catch((err) => {
-      console.error('[SW] Cache deletion failed:', err);
+      // CLEAR ALL CACHES — force a fresh start from network for every user
+      console.log('[SW] Deleting all caches...');
+      return Promise.all(keys.map((key) => caches.delete(key)));
     }).then(() => {
+      // Take control of all open tabs/clients immediately 
+      // so their next requests don't hit an old worker's proxy
+      return self.clients.claim();
+    }).then(() => {
+      console.log('[SW] Unregistering self...');
       return self.registration.unregister();
+    }).catch((err) => {
+      console.error('[SW] Cleanup failed:', err);
     })
   );
 });
 
 self.addEventListener('fetch', () => {
-  // Do nothing, let the browser handle it
+  // Always let the network handle it
 });

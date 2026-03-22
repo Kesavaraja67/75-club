@@ -22,6 +22,17 @@ export default function LandingPage() {
 
   useEffect(() => {
     let isMounted = true;
+    
+    // HARD TIMEOUT: If auth takes > 8 seconds, fallback to guest mode
+    // to prevent the user from seeing an infinite spinner.
+    const authTimeout = setTimeout(() => {
+      if (isMounted && !authResolved) {
+        console.warn("[Auth] Resolution timeout — falling back to guest mode");
+        setAuthResolved(true);
+        setIsAuthenticated(false);
+      }
+    }, 8000);
+
     const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
@@ -39,9 +50,8 @@ export default function LandingPage() {
               setIsProUser(false);
             }
           }
-          // On 5xx or network timeout, we do NOT set false. 
-          // We preserve the indeterminate state (Loading...) 
-          // to prevent kicking valid users to login.
+          // On 5xx or network timeout, we do NOT set false yet. 
+          // We wait for the hard timeout or the next successful call.
           return;
         }
 
@@ -65,14 +75,36 @@ export default function LandingPage() {
         console.error("[Auth] Transport exception:", err);
         // Do not flip flags on transport exceptions (timeouts)
       } finally {
-        if (isMounted) setAuthResolved(true);
+        if (isMounted) {
+          clearTimeout(authTimeout);
+          setAuthResolved(true);
+        }
       }
     };
     checkUser();
     return () => {
       isMounted = false;
+      clearTimeout(authTimeout);
     };
-  }, [supabase]);
+  }, [supabase, authResolved]);
+
+  const handleClearSession = async () => {
+    try {
+      await supabase.auth.signOut();
+      localStorage.clear();
+      // Delete all cookies starting with sb-
+      document.cookie.split(";").forEach((c) => {
+        const name = c.trim().split("=")[0];
+        if (name.startsWith("sb-")) {
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        }
+      });
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      window.location.reload();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -455,6 +487,14 @@ export default function LandingPage() {
               <p className="text-sm text-muted-foreground mt-4">
                 No credit card required • Setup in 30 seconds • Cancel anytime
               </p>
+              {!authResolved && (
+                <button 
+                  onClick={handleClearSession}
+                  className="mt-4 text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+                >
+                  Taking too long? Click here to refresh session
+                </button>
+              )}
             </div>
           </div>
         </section>
