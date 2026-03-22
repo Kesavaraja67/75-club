@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut, Menu, X } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { SubscriptionStatus } from "@/lib/subscription";
 import Image from "next/image";
 
@@ -16,8 +16,15 @@ export default function Navbar() {
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
+  const lastAuthCheckRef = useRef(0);
+
   useEffect(() => {
     const checkAuth = async () => {
+      // Debounce: ignore calls within 500ms
+      const now = Date.now();
+      if (now - lastAuthCheckRef.current < 500) return;
+      lastAuthCheckRef.current = now;
+
       const { data: { session } } = await supabase.auth.getSession();
       setIsAuthenticated(!!session);
       
@@ -37,7 +44,8 @@ export default function Navbar() {
       }
     };
     
-    window.addEventListener('visibilitychange', handleVisibilityChange);
+    // FIX: Attach visibilitychange to document, not window
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleVisibilityChange);
 
     // 2. Fix shadowing: Rename destuctured variable
@@ -54,7 +62,7 @@ export default function Navbar() {
 
     return () => {
       authListener.unsubscribe();
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
     };
   }, [supabase]);

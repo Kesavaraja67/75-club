@@ -2,23 +2,28 @@ self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
+// Aggressive Service Worker cleanup script
 self.addEventListener('activate', (event) => {
+  // Clear ALL caches to ensure no stale assets interfere with auth/loading
   event.waitUntil(
     caches.keys().then((keys) => {
-      const targetCaches = keys.filter(key => 
-        key.startsWith('static-shell-') || 
-        key.startsWith('workbox-') || 
-        key.startsWith('next-pwa-')
-      );
-      return Promise.all(targetCaches.map((key) => caches.delete(key)));
-    }).catch((err) => {
-      console.error('[SW] Cache deletion failed:', err);
-    }).then(() => {
-      return self.registration.unregister();
+      return Promise.all(keys.map((key) => caches.delete(key)));
+    }).then(async () => {
+      console.log('[SW] All caches cleared. Unregistering...');
+      try {
+        const success = await self.registration.unregister();
+        if (success) {
+          console.log('[SW] Unregistration successful.');
+        } else {
+          console.warn('[SW] Unregistration returned false.');
+        }
+      } catch (err) {
+        console.error('[SW] Unregistration failed:', err);
+      }
     })
   );
 });
 
 self.addEventListener('fetch', () => {
-  // Do nothing, let the browser handle it
+  // Always let the network handle it
 });

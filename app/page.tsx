@@ -11,6 +11,8 @@ import Image from "next/image";
 import UpgradeDialog from "@/components/subscription/UpgradeDialog"; // Import UpgradeDialog
 import { useRouter } from "next/navigation"; // Import useRouter
 import { fetchSubscriptionStatus } from "@/lib/subscription";
+import { clearSessionAndRedirect } from "@/lib/session-utils";
+import { useRef } from "react";
 
 export default function LandingPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -20,8 +22,26 @@ export default function LandingPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
+  const authResolvedRef = useRef(false);
+  
+  // Sync state to ref
+  useEffect(() => {
+    authResolvedRef.current = authResolved;
+  }, [authResolved]);
+
   useEffect(() => {
     let isMounted = true;
+    
+    // HARD TIMEOUT: If auth takes > 8 seconds, fallback to guest mode
+    // to prevent the user from seeing an infinite spinner.
+    const authTimeout = setTimeout(() => {
+      if (isMounted && !authResolvedRef.current) {
+        console.warn("[Auth] Resolution timeout — falling back to guest mode");
+        setAuthResolved(true);
+        setIsAuthenticated(false);
+      }
+    }, 8000);
+
     const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
@@ -39,9 +59,8 @@ export default function LandingPage() {
               setIsProUser(false);
             }
           }
-          // On 5xx or network timeout, we do NOT set false. 
-          // We preserve the indeterminate state (Loading...) 
-          // to prevent kicking valid users to login.
+          // On 5xx or network timeout, we do NOT set false yet. 
+          // We wait for the hard timeout or the next successful call.
           return;
         }
 
@@ -65,14 +84,22 @@ export default function LandingPage() {
         console.error("[Auth] Transport exception:", err);
         // Do not flip flags on transport exceptions (timeouts)
       } finally {
-        if (isMounted) setAuthResolved(true);
+        if (isMounted) {
+          clearTimeout(authTimeout);
+          setAuthResolved(true);
+        }
       }
     };
     checkUser();
     return () => {
       isMounted = false;
+      clearTimeout(authTimeout);
     };
-  }, [supabase]);
+  }, [supabase]); // Removed authResolved from deps to avoid loop
+
+  const handleClearSession = async () => {
+    await clearSessionAndRedirect(supabase);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -455,6 +482,14 @@ export default function LandingPage() {
               <p className="text-sm text-muted-foreground mt-4">
                 No credit card required • Setup in 30 seconds • Cancel anytime
               </p>
+              {!authResolved && (
+                <button 
+                  onClick={handleClearSession}
+                  className="mt-4 text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+                >
+                  Taking too long? Click here to refresh session
+                </button>
+              )}
             </div>
           </div>
         </section>
