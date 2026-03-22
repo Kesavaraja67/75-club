@@ -11,6 +11,8 @@ import Image from "next/image";
 import UpgradeDialog from "@/components/subscription/UpgradeDialog"; // Import UpgradeDialog
 import { useRouter } from "next/navigation"; // Import useRouter
 import { fetchSubscriptionStatus } from "@/lib/subscription";
+import { clearSessionAndRedirect } from "@/lib/session-utils";
+import { useRef } from "react";
 
 export default function LandingPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -20,13 +22,20 @@ export default function LandingPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
+  const authResolvedRef = useRef(false);
+  
+  // Sync state to ref
+  useEffect(() => {
+    authResolvedRef.current = authResolved;
+  }, [authResolved]);
+
   useEffect(() => {
     let isMounted = true;
     
     // HARD TIMEOUT: If auth takes > 8 seconds, fallback to guest mode
     // to prevent the user from seeing an infinite spinner.
     const authTimeout = setTimeout(() => {
-      if (isMounted && !authResolved) {
+      if (isMounted && !authResolvedRef.current) {
         console.warn("[Auth] Resolution timeout — falling back to guest mode");
         setAuthResolved(true);
         setIsAuthenticated(false);
@@ -86,24 +95,10 @@ export default function LandingPage() {
       isMounted = false;
       clearTimeout(authTimeout);
     };
-  }, [supabase, authResolved]);
+  }, [supabase]); // Removed authResolved from deps to avoid loop
 
   const handleClearSession = async () => {
-    try {
-      await supabase.auth.signOut();
-      localStorage.clear();
-      // Delete all cookies starting with sb-
-      document.cookie.split(";").forEach((c) => {
-        const name = c.trim().split("=")[0];
-        if (name.startsWith("sb-")) {
-          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-        }
-      });
-      window.location.reload();
-    } catch (err) {
-      console.error(err);
-      window.location.reload();
-    }
+    await clearSessionAndRedirect(supabase);
   };
 
   return (

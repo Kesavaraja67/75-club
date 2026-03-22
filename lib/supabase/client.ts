@@ -43,8 +43,11 @@ export const createClient = () => {
 
         let cookieVal = getCookie(name);
         
-        // If the main cookie is missing or looks like a chunked start, try pieces
-        if (!cookieVal || cookieVal === 'true') { // some SSR setups set a 'base' cookie to 'true'
+        // If the main cookie is missing, equals 'true' (SSR marker), or looks truncated (no dots for JWT)
+        // attempt to read it as a chunked session
+        const isLikelyFragment = cookieVal === 'true' || (cookieVal && !cookieVal.includes('.') && !cookieVal.startsWith('{'));
+        
+        if (!cookieVal || isLikelyFragment) {
           let chunk = 0;
           let combined = '';
           while (true) {
@@ -58,10 +61,7 @@ export const createClient = () => {
 
         // 3. Sync cookie to localStorage if they differ
         if (cookieVal && cookieVal !== localVal) {
-          // If it looks like legitimate JSON, save it
-          if (cookieVal.startsWith('{') || cookieVal.length > 50) {
-            window.localStorage.setItem(storageKey, cookieVal);
-          }
+          window.localStorage.setItem(storageKey, cookieVal);
           return cookieVal;
         }
 

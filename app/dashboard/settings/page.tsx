@@ -71,14 +71,15 @@ export default function SettingsPage() {
       }
     };
     
-    window.addEventListener('visibilitychange', handleVisibilityChange);
+    // FIX: Attach visibilitychange to document, not window
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
     };
-  }, [router, supabase]);
+  }, [loadData]); // depend on memoized loadData
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,13 +142,8 @@ export default function SettingsPage() {
   };
 
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Sign out failed:", error);
-      toast.error("Failed to sign out. Please try again.");
-      return;
-    }
-    router.push("/login");
+    const { clearSessionAndRedirect } = await import("@/lib/session-utils");
+    await clearSessionAndRedirect(supabase);
   };
 
   if (loading) {

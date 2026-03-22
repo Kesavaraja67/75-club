@@ -13,6 +13,8 @@ import { fetchSubscriptionStatus, UPGRADE_MESSAGES, SubscriptionStatus } from "@
 import UpgradeDialog from "@/components/subscription/UpgradeDialog";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { SectionErrorBoundary } from "@/components/dashboard/SectionErrorBoundary";
+import { clearSessionAndRedirect } from "@/lib/session-utils";
+import { useRef } from "react";
 import dynamic from "next/dynamic";
 import type { ScannedSubject } from "@/components/scan/ResultsDialog";
 
@@ -54,59 +56,6 @@ export default function DashboardPage() {
 
   const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => {
-    const loadSubscription = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) return;
-      
-      // SELF-HEALING: Trigger reconciliation on mount to catch any missed activations
-      // We append a timestamp to bypass any PWA/ISP caching
-      fetch(`/api/subscription/reconcile?t=${Date.now()}`, { 
-        method: "POST",
-        cache: "no-store",
-      })
-        .then(async (res) => {
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            throw new Error(data.message || data.error || "Reconciliation failed");
-          }
-          return res.json();
-        })
-        .then(data => {
-          if (data.reconciled) {
-            console.log("[Dashboard] Subscription reconciled, refreshing status...");
-            loadSubscription(); // Re-run to get fresh Pro status
-          }
-        })
-        .catch(err => console.error("Reconciliation trigger failed:", err));
-      
-      const status = await fetchSubscriptionStatus(user.id, supabase);
-      if (status) {
-        setSubscriptionStatus(status);
-      } else {
-        console.error("Failed to fetch subscription status, keeping current or null state");
-      }
-    };
-    
-    loadSubscription();
-
-    // PWA RESUME DETECTION: Refresh status when app comes back to foreground
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        loadSubscription();
-      }
-    };
-    
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
-    };
-  }, [supabase]);
-  
   // Scan States
   const [isScanOpen, setIsScanOpen] = useState(false);
   const [scanResults, setScanResults] = useState<ScannedSubject[]>([]);
@@ -125,6 +74,14 @@ export default function DashboardPage() {
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState<string>("");
   const [upgradeMessage, setUpgradeMessage] = useState<string>("");
+
+  const loadingRef = useRef(loading);
+  const lastRefreshRef = useRef(0);
+
+  // Sync loading state to ref to avoid stale closures in timeouts
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
 
   const fetchSubjects = useCallback(async (signalOrEvent?: AbortSignal | unknown) => {
     const externalSignal = signalOrEvent instanceof AbortSignal ? signalOrEvent : undefined;
@@ -207,13 +164,77 @@ export default function DashboardPage() {
   }, [supabase]);
 
   useEffect(() => {
+    const loadSubscription = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) return;
+      
+      // SELF-HEALING: Trigger reconciliation on mount to catch any missed activations
+      // We append a timestamp to bypass any PWA/ISP caching
+      fetch(`/api/subscription/reconcile?t=${Date.now()}`, { 
+        method: "POST",
+        cache: "no-store",
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.message || data.error || "Reconciliation failed");
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (data.reconciled) {
+            console.log("[Dashboard] Subscription reconciled, refreshing status directly...");
+            // FIX: Don't call loadSubscription() recursively. 
+            // Just fetch the status and update state directly.
+            fetchSubscriptionStatus(user.id, supabase).then(status => {
+              if (status) setSubscriptionStatus(status);
+            });
+          }
+        })
+        .catch(err => console.error("Reconciliation trigger failed:", err));
+      
+      const status = await fetchSubscriptionStatus(user.id, supabase);
+      if (status) {
+        setSubscriptionStatus(status);
+      } else {
+        console.error("Failed to fetch subscription status, keeping current or null state");
+      }
+    };
+    
+    loadSubscription();
+
+    // PWA RESUME DETECTION: Refresh status when app comes back to foreground
+    const handleVisibilityChange = () => {
+      // Throttle refreshes to once every 2 seconds to prevent flickering
+      const now = Date.now();
+      if (now - lastRefreshRef.current < 2000) return;
+      
+      if (document.visibilityState === 'visible') {
+        lastRefreshRef.current = now;
+        loadSubscription();
+        fetchSubjects(); // Also refresh subjects on resume
+      }
+    };
+    
+    // FIX: Attach visibilitychange to document, not window
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [supabase, fetchSubjects]);
+
+  useEffect(() => {
     const controller = new AbortController();
     fetchSubjects(controller.signal);
     
     // HARD TIMEOUT: If loading takes > 10s, force it to end 
     // This unblocks the UI even if the network is crawling
     const timeout = setTimeout(() => {
-      if (loading) {
+      if (loadingRef.current) {
         console.warn("[Dashboard] Initial fetch taking too long, forcing load end");
         setLoading(false);
       }
@@ -223,7 +244,7 @@ export default function DashboardPage() {
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [fetchSubjects, loading]);
+  }, [fetchSubjects]); // Removed loading from deps to avoid re-run on every state change
 
   // Real-time Sync
   useEffect(() => {
@@ -441,14 +462,7 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground animate-pulse">Loading your dashboard...</p>
           <button 
             onClick={async () => {
-              localStorage.clear();
-              document.cookie.split(";").forEach((c) => {
-                const name = c.trim().split("=")[0];
-                if (name.startsWith("sb-")) {
-                  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-                }
-              });
-              window.location.href = "/";
+              await clearSessionAndRedirect(supabase);
             }}
             className="mt-8 text-xs text-muted-foreground hover:text-foreground underline"
           >

@@ -2,21 +2,24 @@ self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
+// Aggressive Service Worker cleanup script
 self.addEventListener('activate', (event) => {
+  // Clear ALL caches to ensure no stale assets interfere with auth/loading
   event.waitUntil(
     caches.keys().then((keys) => {
-      // CLEAR ALL CACHES — force a fresh start from network for every user
-      console.log('[SW] Deleting all caches...');
       return Promise.all(keys.map((key) => caches.delete(key)));
-    }).then(() => {
-      // Take control of all open tabs/clients immediately 
-      // so their next requests don't hit an old worker's proxy
-      return self.clients.claim();
-    }).then(() => {
-      console.log('[SW] Unregistering self...');
-      return self.registration.unregister();
-    }).catch((err) => {
-      console.error('[SW] Cleanup failed:', err);
+    }).then(async () => {
+      console.log('[SW] All caches cleared. Unregistering...');
+      try {
+        const success = await self.registration.unregister();
+        if (success) {
+          console.log('[SW] Unregistration successful.');
+        } else {
+          console.warn('[SW] Unregistration returned false.');
+        }
+      } catch (err) {
+        console.error('[SW] Unregistration failed:', err);
+      }
     })
   );
 });
