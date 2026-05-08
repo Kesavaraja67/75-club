@@ -60,8 +60,8 @@ Most Indian colleges enforce a strict **75% minimum attendance** rule — but tr
 ### 2 — Clone & Install
 
 ```bash
-git clone https://github.com/Kesavaraja67/the-bunk-planner-web.git
-cd the-bunk-planner-web
+git clone https://github.com/Kesavaraja67/75-club.git
+cd 75-club
 npm install
 ```
 
