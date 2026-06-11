@@ -2,11 +2,7 @@ import { createBrowserClient, type CookieOptions } from '@supabase/ssr'
 import { supabaseFetchWithTimeout } from '@/lib/fetch-with-timeout'
 import { isInstalledPWA } from '@/lib/pwa-utils'
 
-let client: ReturnType<typeof createBrowserClient> | undefined;
-
-export const createClient = () => {
-  if (client) return client;
-  
+export const createClient = (): ReturnType<typeof createBrowserClient> => {
   const options = {
     global: {
       fetch: supabaseFetchWithTimeout,
@@ -93,11 +89,9 @@ export const createClient = () => {
     };
   }
 
-  client = createBrowserClient(
+  return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     options
   );
-  
-  return client;
 }

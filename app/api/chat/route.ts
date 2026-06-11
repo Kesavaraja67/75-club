@@ -208,7 +208,8 @@ Now respond to the student's question using this context!`;
 
     const apiKey = process.env.GEMINI_API_KEY;
     // Using gemini-2.5-flash (confirmed available with this API key)
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
     const requestBody = {
       contents: [

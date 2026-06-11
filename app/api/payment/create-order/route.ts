@@ -15,7 +15,17 @@ export async function POST() {
     }
 
     // 2. Check if user already has active Pro subscription
-    const subStatus = await getServerSubscriptionStatus(user.id);
+    let subStatus;
+    try {
+      subStatus = await getServerSubscriptionStatus(user.id);
+    } catch (err) {
+      console.error("[Order] Subscription check failed:", err);
+      return NextResponse.json(
+        { error: "Service temporarily unavailable. Please try again." },
+        { status: 503 }
+      );
+    }
+    
     if (subStatus.isProUser) {
       return NextResponse.json(
         { error: "You already have an active Pro subscription" },

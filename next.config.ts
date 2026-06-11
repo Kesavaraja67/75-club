@@ -15,7 +15,17 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "plus.unsplash.com",
       },
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
     ],
+  },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "4mb",
+    },
   },
   // Custom headers for PWA and Security
   async headers() {
@@ -27,13 +37,20 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://va.vercel-scripts.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://cdn.razorpay.com https://va.vercel-scripts.com",
               "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
-              "connect-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com",
-              "img-src 'self' data: https://checkout.razorpay.com",
+              "connect-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://cdn.razorpay.com https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com",
+              "img-src 'self' data: https://checkout.razorpay.com https://cdn.razorpay.com",
               "style-src 'self' 'unsafe-inline'",
               "font-src 'self' data: https://fonts.gstatic.com",
             ].join('; '),
+          },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
           },
         ],
       },

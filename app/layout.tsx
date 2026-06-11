@@ -7,6 +7,7 @@ import InstallPrompt from "@/components/pwa/InstallPrompt";
 import IOSInstallPrompt from "@/components/pwa/IOSInstallPrompt";
 import PWALoadingGuard from "@/components/pwa/PWALoadingGuard";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -76,7 +77,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <head>
         {/* iOS PWA — explicit meta fallbacks for older iOS versions */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -111,8 +112,11 @@ export default function RootLayout({
           {`
             if ('serviceWorker' in navigator) {
               navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for(let registration of registrations) {
-                  registration.unregister();
+                for (let registration of registrations) {
+                  // Only unregister if the SW is not the current one
+                  if (registration.active && !registration.active.scriptURL.includes('/sw.js')) {
+                    registration.unregister();
+                  }
                 }
               });
             }
@@ -121,6 +125,9 @@ export default function RootLayout({
 
         {/* Vercel Analytics */}
         <Analytics />
+
+        {/* Vercel Speed Insights */}
+        <SpeedInsights />
       </body>
     </html>
   );
